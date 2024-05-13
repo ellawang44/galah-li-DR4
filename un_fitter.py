@@ -5,7 +5,7 @@ from scipy.stats import norm
 
 class UNFitter():
 
-    def __init__(self, wl_obs, flux_obs, flux_err, fitter, constraints, mode, metal_poor, e_vbroad=None, opt=None, nwalkers=8, run=True, grid=None):
+    def __init__(self, wl_obs, flux_obs, flux_err, fitter, constraints, mode, metal_poor, opt=None, nwalkers=8, run=True, grid=None, fit_rv=True):
         self.wl_obs = wl_obs
         self.flux_obs = flux_obs
         self.flux_err = flux_err
@@ -17,7 +17,6 @@ class UNFitter():
         ndim = len(self.constraints)
         self.mode = mode
         self.metal_poor = metal_poor
-        self.e_vbroad = e_vbroad
         # randomise initial position of walkers
         p0 = np.zeros((nwalkers, ndim))
         for i in range(nwalkers):
@@ -26,11 +25,12 @@ class UNFitter():
                 p0[i][j] = np.random.uniform(minP, maxP)
         # names of columns
         if metal_poor:
-            param_names = ['Li', 'vbroad', 'const']
-        elif mode == 'Gaussian':
+            if fit_rv:
+                param_names = ['Li', 'rv', 'const']
+            else:
+                param_names = ['Li', 'const']
+        else:
             param_names = ['Li', 'CN1', 'Fe', 'CN2', 'Ce/V', '?1', '?2', 'const']
-        elif mode == 'Breidablik':
-            param_names = ['Li', 'vbroad', 'CN1', 'Fe', 'CN2', 'Ce/V', '?1', '?2', 'const']
         # if run the sample, or else just initialize class
         if run:
             self.sampler = ultranest.ReactiveNestedSampler(param_names, self.like, self.transform)
@@ -57,21 +57,6 @@ class UNFitter():
             if (p < self.constraints[i][0]) or (self.constraints[i][1] < p):
                 return -np.inf
         prior = 1
-        # prior on std
-        if self.metal_poor:
-            # uniform region
-            if param[1] <= self.fitter.std_galah: 
-                prior *= 1
-            # rolloff region
-            else:
-                prior *= norm.pdf(param[1], loc=self.fitter.std_galah, scale=self.e_vbroad)/norm.pdf(0, scale=self.e_vbroad)
-        #if self.mode == 'Gaussian':
-        #    # uniform region
-        #    if param[1] <= self.fitter.std_galah:
-        #        prior *= 1
-            # rolloff region
-       #     else:
-       #         prior *= norm.pdf(param[1], loc=self.fitter.std_galah, scale=self.e_vbroad)
         return np.log(prior)
 
     def transform(self, param):
@@ -91,7 +76,7 @@ class UNFitter():
         '''
         if self.metal_poor:
             rv = 0
-            std = self.fitter.std_galah
+            std = self.fitter.std
         else:
             rv = self.fitter.rv
             std = self.fitter.std

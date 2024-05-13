@@ -12,12 +12,8 @@ def read_meta(directory=info_directory):
         data = hdul[1].data
         x = np.rec.array([
             data['sobject_id'],
-            #data['flag_repeat'],
             data['snr_px_ccd3'],
-            #data['rv_galah'],
-            #data['e_rv_galah'],
             data['vsini'],
-            data['e_vsini'],
             data['teff'],
             data['e_teff'],
             data['logg'],
@@ -31,12 +27,8 @@ def read_meta(directory=info_directory):
             ],
             dtype=[
                 ('sobject_id', int), 
-                #('flag_repeat', int),
                 ('snr_c3_iraf', np.float64),
-                #('rv_galah', np.float64),
-                #('e_rv_galah', np.float64),
                 ('vbroad', np.float64),
-                ('e_vbroad', np.float64),
                 ('teff', np.float64),
                 ('e_teff', np.float64),
                 ('logg', np.float64),
@@ -61,7 +53,7 @@ def read_spectra(sobject_id):
         return None # some stars aren't published. politics, we ignore these stars anyway
         
     # Check if FITS files already available in working directory
-    fits_files = f'{working_directory}/{sobject_id}_allstar_fit_spectrum.fits'
+    fits_files = f'{working_directory}/{str(sobject_id)[:6]}/{sobject_id}.fits'
 
     spectrum = dict()
     fits = pyfits.open(fits_files)
@@ -70,7 +62,6 @@ def read_spectra(sobject_id):
     spectrum['wave_norm'] = fits[1].data['wave']
     spectrum['sob_norm']  = fits[1].data['sob']
     spectrum['uob_norm']  = fits[1].data['uob']
-    #TODO: CDELT is gone
     
     fits.close()
 

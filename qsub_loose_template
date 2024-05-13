@@ -1,12 +1,11 @@
 #!/bin/bash                                                 
-#PBS -N GALAH_Li
-#PBS -l ncpus=1
-#PBS -l mem=4GB
+#PBS -N GALAH_${key}
+#PBS -l ncpus=48
+#PBS -l mem=180GB
 #PBS -q normal
 #PBS -l walltime=48:00:00
 #PBS -lstorage=gdata/y89+scratch/y89
 #PBS -P y89
-#PBS -J 0-${ncpu}
 #PBS -r y
 
 module unload python3
@@ -14,6 +13,4 @@ module load python3/3.7.4
 
 cd ${main_directory}
 
-keys=(${keys})
-python3 main.py -k ${keys[$PBS_ARRAY_INDEX]} --save_fit --load_fit --save
-
+python3 main_pool.py -k ${key} --load_fit --save_fit 
