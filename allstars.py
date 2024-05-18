@@ -33,8 +33,8 @@ sigma_num = 2 # sigma that we make the detection cutoff at
 
 start = time.time()
 # read in data and combine into 1 array - it doesn't take too long to run.
-dtype = [('sobject_id', '<f8'), ('ew_li', '<f8'), ('CN1', '<f8'), ('Fe', '<f8'), ('CN2', '<f8'), ('V/ce', '<f8'), ('?1', '<f8'), ('?2', '<f8'), ('li_std', '<f8'), ('rv', '<f8'), ('err_low', '<f8'), ('err_upp', '<f8'), ('norris', '<f8'), ('snr', '<f8'), ('minchisq', '<f8'), ('edge_ind', '<f8')] # need this to grab array quickly
-dtype2 = [('sobject_id', '<i8'), ('ew_li', '<f8'), ('CN1', '<f8'), ('Fe', '<f8'), ('CN2', '<f8'), ('V/ce', '<f8'), ('?1', '<f8'), ('?2', '<f8'), ('li_std', '<f8'), ('rv', '<f8'), ('err_low', '<f8'), ('err_upp', '<f8'), ('norris', '<f8'), ('snr', '<f8'), ('minchisq', '<f8'), ('edge_ind', '<f8')] # this is the actual one
+dtype = [('sobject_id', '<f8'), ('ew_li', '<f8'), ('CN1', '<f8'), ('Fe', '<f8'), ('CN2', '<f8'), ('V/Ce', '<f8'), ('?1', '<f8'), ('?2', '<f8'), ('li_std', '<f8'), ('rv', '<f8'), ('err_low', '<f8'), ('err_upp', '<f8'), ('norris', '<f8'), ('snr', '<f8'), ('minchisq', '<f8'), ('edge_ind', '<f8')] # need this to grab array quickly
+dtype2 = [('sobject_id', '<i8'), ('ew_li', '<f8'), ('CN1', '<f8'), ('Fe', '<f8'), ('CN2', '<f8'), ('V/Ce', '<f8'), ('?1', '<f8'), ('?2', '<f8'), ('li_std', '<f8'), ('rv', '<f8'), ('err_low', '<f8'), ('err_upp', '<f8'), ('norris', '<f8'), ('snr', '<f8'), ('minchisq', '<f8'), ('edge_ind', '<f8')] # this is the actual one
 keys = os.listdir(output_directory)
 data = []
 for key in keys:
@@ -172,7 +172,13 @@ x = np.rec.array([
     np.sqrt(np.square(data['vbroad']) + (299792.458/25500)**2), # add in instrumental profile
     data['rv'],
     data['rv_galah'],
-    data['snr_c3_iraf']
+    data['snr_c3_iraf'],
+    data['CN1'],
+    data['Fe'],
+    data['CN2'],
+    data['V/Ce'],
+    data['?1'],
+    data['?2']
     ],
     dtype=[
         ('sobject_id', int),
@@ -202,6 +208,12 @@ x = np.rec.array([
         ('delta_rv_6708', np.float64),
         ('rv_DR3', np.float64),
         ('snr_DR3', np.float64),
+        ('CN1', np.float64),
+        ('Fe', np.float64),
+        ('CN2', np.float64),
+        ('V/Ce', np.float64),
+        ('?1', np.float64),
+        ('?2', np.float64)
         ]
     )
 np.save(f'{main_directory}/allstars.npy', x)

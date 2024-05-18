@@ -13,4 +13,4 @@ module load python3/3.7.4
 
 cd ${main_directory}
 
-python3 main_pool.py -k ${key} --load_fit --save_fit 
+python3 main.py -k ${key} --load_fit --save_fit --threads 48
