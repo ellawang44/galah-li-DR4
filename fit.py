@@ -737,7 +737,7 @@ def filter_spec(spec, sigma=5):
     '''
 
     # filter negative flux
-    mask = mask & (spec['sob_norm'] >= 0)
+    mask = spec['sob_norm'] >= 0
     # filter sigma too small, if too small change to medium
     medium_sig = np.nanmedian(spec['uob_norm'])
     mask_medium = spec['uob_norm'] < medium_sig/10 # allow 1 order of magnitude
