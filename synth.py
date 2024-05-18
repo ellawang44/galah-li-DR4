@@ -13,8 +13,6 @@ _spectra = Spectra()
 # cut to 6703 - 6712 (a little bit extra for rv shift)
 _spectra.cut_models = _spectra.models[136:298]
 _wl = vac_to_air(read.get_wavelengths()*10)[136:298]
-# convolution setup
-conv = Conv(_wl, center=6707.8139458)
 
 def bline(x, ew, std, rv, teff, logg, feh, ew_to_abund, min_ew, grid=None):
     '''Li line profiles from breidablik or interpolation grid.
