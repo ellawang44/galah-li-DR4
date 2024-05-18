@@ -1,7 +1,6 @@
 import numpy as np
 from breidablik.interpolate.spectra import Spectra
 from breidablik.analysis import read
-from broaden import Conv
 from astro_tools import SpecAnalysis
 from scipy.stats import norm
 from astro_tools import vac_to_air
