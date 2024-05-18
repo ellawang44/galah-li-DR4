@@ -12,8 +12,12 @@ def read_meta(directory=info_directory):
         data = hdul[1].data
         x = np.rec.array([
             data['sobject_id'],
+            data['tmass_id'],
             data['snr_px_ccd3'],
+            data['rv_comp_1'],
+            data['e_rv_comp_1'],
             data['vsini'],
+            data['e_vsini'],
             data['teff'],
             data['e_teff'],
             data['logg'],
@@ -27,8 +31,12 @@ def read_meta(directory=info_directory):
             ],
             dtype=[
                 ('sobject_id', int), 
+                ('tmass_id', '<U16'),
                 ('snr_c3_iraf', np.float64),
+                ('rv_galah', np.float64),
+                ('e_rv_galah', np.float64),
                 ('vbroad', np.float64),
+                ('e_vbroad', np.float64),
                 ('teff', np.float64),
                 ('e_teff', np.float64),
                 ('logg', np.float64),
@@ -62,6 +70,7 @@ def read_spectra(sobject_id):
     spectrum['wave_norm'] = fits[1].data['wave']
     spectrum['sob_norm']  = fits[1].data['sob']
     spectrum['uob_norm']  = fits[1].data['uob']
+    #TODO: CDELT is gone
     
     fits.close()
 

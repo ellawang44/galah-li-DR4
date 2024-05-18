@@ -8,9 +8,12 @@ import matplotlib as mpl
 from load import FFNN
 from config import *
 from read import read_spectra, read_meta, cut
+from astropy.table import Table
 
+# define variables and functions required for the analysis
 output_directory = 'results'
 def grid_check(teffs, loggs, fehs):
+    '''Parallelised version of grid check from breidablik'''
     with open('grid_snapshot.txt', 'r') as f:
         t_step, m_step = np.float_(f.readline().split())
         grid = np.loadtxt(f)
@@ -26,12 +29,12 @@ def grid_check(teffs, loggs, fehs):
 ## Convert EW into abundances. 
 ##
 
-sigma_num = 2
+sigma_num = 2 # sigma that we make the detection cutoff at
 
 start = time.time()
 # read in data and combine into 1 array - it doesn't take too long to run.
-dtype = [('sobject_id', '<f8'), ('ew_li', '<f8'), ('std', '<f8'), ('li_std', '<f8'), ('rv', '<f8'), ('err_low', '<f8'), ('err_upp', '<f8'), ('post_ind', '<f8'), ('area', '<f8'), ('stone', '<f8'), ('norris', '<f8')] # need this to grab array quickly
-dtype2 = [('sobject_id', '<i8'), ('ew_li', '<f8'), ('std', '<f8'), ('li_std', '<f8'), ('rv', '<f8'), ('err_low', '<f8'), ('err_upp', '<f8'), ('post_ind', '<i8'), ('area', '<f8'), ('stone', '?'), ('norris', '<f8')] # this is the actual one
+dtype = [('sobject_id', '<f8'), ('ew_li', '<f8'), ('CN1', '<f8'), ('Fe', '<f8'), ('CN2', '<f8'), ('V/ce', '<f8'), ('?1', '<f8'), ('?2', '<f8'), ('li_std', '<f8'), ('rv', '<f8'), ('err_low', '<f8'), ('err_upp', '<f8'), ('norris', '<f8'), ('snr', '<f8'), ('minchisq', '<f8'), ('edge_ind', '<f8')] # need this to grab array quickly
+dtype2 = [('sobject_id', '<i8'), ('ew_li', '<f8'), ('CN1', '<f8'), ('Fe', '<f8'), ('CN2', '<f8'), ('V/ce', '<f8'), ('?1', '<f8'), ('?2', '<f8'), ('li_std', '<f8'), ('rv', '<f8'), ('err_low', '<f8'), ('err_upp', '<f8'), ('norris', '<f8'), ('snr', '<f8'), ('minchisq', '<f8'), ('edge_ind', '<f8')] # this is the actual one
 keys = os.listdir(output_directory)
 data = []
 for key in keys:
@@ -43,44 +46,37 @@ data = np.concatenate(data, axis=0)
 data = np.rec.array([
     data[:,i] for i in range(len(dtype))
     ], dtype=dtype2)
-# rewrite errors
+# rewrite errors as differences
 data['err_low'] = data['ew_li'] - data['err_low']
 data['err_upp'] = data['err_upp'] - data['ew_li']
 
 # check that upper error and lower error bound the measured value
 check = (data['err_low'][~np.isnan(data['err_low'])] > 0).all() and (data['err_upp'][~np.isnan(data['err_upp'])] > 0).all()
 assert check, 'errors do not bound MLE'
-# norris errors are within 0.015 of mcmc errors, mostly. can get up to 0.1. 
+
+print('no. of stars', data.shape)
 
 # check posterior stuff
-# throw out the bad continuum, boundary expansion is correct, it is possible for sample to get driven to the edge after the boundary expansion
-flag_cont = data['post_ind'] == -1 
+# flag bad continuum, boundary expansion is correct, it is possible for sample to get driven to the edge after the boundary expansion
+flag_cont = data['edge_ind'] == -1 
 print('no. with cont broken', np.sum(flag_cont)) # this is small enough that it doesn't matter
-# print numbers for all parameter posteriors
-flag_post = ~(data['post_ind'] == 99) 
+# flag posterior not converged for any parameter
+flag_post = ~(data['edge_ind'] == 99) 
 print('no. with bad posterior (all params)', np.sum(flag_post))
-# print number for A(Li) posteriors
-flag_ali_err = data['post_ind'] == 0 
+# flag posterior not converged for A(Li) 
+flag_ali_err = data['edge_ind'] == 0 
 print('no. with bad posterior (A(Li))', np.sum(flag_ali_err))
-
-print('no. of spectra', data.shape)
 
 # read in model
 ffnn = FFNN(model=model_path+'/rew')
 scalar = Scalar()
 scalar.load(model_path+'/rew/scalar.npy')
 
-# crossmatch between DR3
-DR3 = pd.DataFrame(np.load('data/GALAH_DR.npy'))
+# crossmatch to GALAH
+DR = pd.DataFrame(np.load('data/GALAH_DR.npy'))
 data = pd.DataFrame(data)
-data = data.merge(DR3, on='sobject_id')
+data = data.merge(DR, on='sobject_id')
 data = data.to_records()
-
-# remove repeated observations of same star
-# some stacked spectra will be broken due to single observations being broken - this will propogate through
-mask = ~np.bool_(data['flag_repeat']) #np.ones(len(data['sobject_id']), dtype='bool') # simply keep all observations
-data = data[mask]
-print('no. of stars', np.sum(mask))
 
 # grid check
 in_grid = grid_check(data['teff'], data['logg'], data['fe_h'])
@@ -92,11 +88,11 @@ mask_grid = in_grid & ~lgrid & ~ugrid & ~np.isnan(data['e_teff'])
 print('value in grid err out grid', np.sum(mask_grid))
 # because circle
 
-# chisq cut
-# no chisq cut is done because it is dependent on S/N as opposed to how the fitting actually looks 
+# chisq cut TODO
+# no chisq cut is done because it will throw out some high S/N stars as well as bad fits
 
-# define detection limit 
-upp_lim = np.copy(data['err_low'])*sigma_num # sig
+# define detections and upper limits
+upp_lim = np.copy(data['err_low'])*sigma_num 
 upp_lim[np.isnan(upp_lim)] = data['norris'][np.isnan(upp_lim)]*sigma_num # where nan replace with norris
 non_det = data['ew_li'] < upp_lim 
 print('no. non det', np.sum(non_det))
@@ -104,7 +100,6 @@ norris_non_det = data['ew_li'] < data['norris']*sigma_num
 print('norris no. non det', np.sum(norris_non_det))
 
 # calculate REW
-# report EW measurements, and detection and upper limits
 center = 6707.8139458*(1 + data['rv']/299792.458) 
 REW = np.log10(data['ew_li'] / center)
 REW_l = np.log10((data['ew_li']-data['err_low']) / center)
@@ -123,7 +118,7 @@ X_test_lr = np.array([data['teff'], data['logg'], data['fe_h'], REW_l]).T
 X_test_ur = np.array([data['teff'], data['logg'], data['fe_h'], REW_u]).T
 y_test_lr = ffnn.forward(scalar.transform(X_test_lr)).flatten()
 y_test_ur = ffnn.forward(scalar.transform(X_test_ur)).flatten()
-# set to nan if non det
+# set to nan where required
 y_test[non_det] = np.nan
 y_test_lr[non_det] = np.nan
 y_test_ur[non_det] = np.nan
@@ -141,7 +136,7 @@ mask_lt = np.isnan(y_test_lt)
 y_test_lt[mask_lt] = (y_test - (y_test_ut - y_test))[mask_lt]
 mask_ut = np.isnan(y_test_ut)
 y_test_ut[mask_ut] = (y_test + (y_test - y_test_lt))[mask_ut]
-# other error stuff
+# calc mean err
 y_test_err = np.sqrt(np.sum(np.square(np.array([y_test_ur - y_test_lr, y_test_ut - y_test_lt])/2), axis = 0))
 
 print('mean new err', np.nanmean(y_test_err))
@@ -152,7 +147,7 @@ print('time', end - start)
 # write allstar catalogue
 x = np.rec.array([
     data['sobject_id'],
-    data['star_id'],
+    data['tmass_id'],
     data['teff'],
     data['e_teff'],
     data['logg'],
@@ -172,10 +167,8 @@ x = np.rec.array([
     data['e_Li_fe'],
     data['flag_sp'],
     data['flag_fe_h'],
-    np.int_(non_det) + 2*np.int_(~in_grid) + 4*np.int_(flag_ali_err[mask]) + 8*np.int_(flag_cont[mask]),
-    data['flag_li_fe'],
-    data['std']*2.35482*299792.458/6707.814, # convert from \AA to km/s
-    data['li_std']*2.35482*299792.458/6707.814,
+    np.int_(non_det) + 2*np.int_(~in_grid) + 4*np.int_(flag_ali_err) + 8*np.int_(flag_cont),
+    data['li_std']*2.35482*299792.458/6707.814, # convert from \AA to km/s
     np.sqrt(np.square(data['vbroad']) + (299792.458/25500)**2), # add in instrumental profile
     data['rv'],
     data['rv_galah'],
@@ -183,7 +176,7 @@ x = np.rec.array([
     ],
     dtype=[
         ('sobject_id', int),
-        ('star_id', '<U16'),
+        ('tmass_id', '<U16'),
         ('teff_DR3', np.float64),
         ('e_teff_DR3', np.float64),
         ('logg_DR3', np.float64),
@@ -204,13 +197,20 @@ x = np.rec.array([
         ('flag_sp_DR3', int),
         ('flag_fe_h_DR3', int),
         ('flag_ALi', int),
-        ('flag_ALi_DR3', int),
-        ('vbroad_broad', np.float64),
-        ('vbroad', np.float64),
-        ('vbroad_DR3', np.float64),
+        ('fwhm_li', np.float64),
+        ('fwhm_DR3', np.float64),
         ('delta_rv_6708', np.float64),
         ('rv_DR3', np.float64),
         ('snr_DR3', np.float64),
         ]
     )
 np.save(f'{main_directory}/allstars.npy', x)
+
+'''
+dat = Table(x, names=names)
+if os.path.exists(f'{main_directory}/GALAH_DR3_VAC_li_allstar_v2.fits'):
+    print('allstar fits exists')
+else:
+    print('writing allstar')
+    dat.write(f'{main_directory}/GALAH_DR3_VAC_li_allstar_v2.fits', format='fits')
+'''

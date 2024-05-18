@@ -1,10 +1,12 @@
-from fit import FitBroad, FitG, FitGFixed, FitB, FitBFixed, iter_fit, amp_to_init, pred_amp, _wl, bline, gline, chisq
+from fit import FitBroad, FitG, FitGFixed, FitB, FitBFixed, iter_fit, amp_to_init, pred_amp, cc_rv, _wl, bline, gline, chisq
 from synth import _spectra, Grid
 import numpy as np
 import matplotlib.pyplot as plt
-from breidablik.analysis import tools
+from breidablik.interpolate.spectra import Spectra
+from breidablik.analysis import read, tools
 from config import *
-from scipy.interpolate import CubicSpline
+from scipy.interpolate import interp1d, CubicSpline
+from astro_tools import vac_to_air
 from un_fitter import UNFitter
 import corner
 import time
@@ -171,6 +173,7 @@ class FitSpec:
             pred = fitter.model(spectra['wave_norm'], fitter.get_init(init))
             pred_amps, _, const = pred_amp(spectra['wave_norm'], pred, spectra['uob_norm'], centers=self.narrow_center, rv=self.broad_fit['rv'])
             ratio = pred_amps/amps
+            ratio[np.isnan(ratio)] = 1 # sometimes there's a divide by 0 where amps is 0
             # better amps
             amps = amps/ratio
             init = amp_to_init(amps, self.std, const, rv=self.broad_fit['rv'])
@@ -412,7 +415,7 @@ class FitSpec:
             else:
                 li_ew, const = MAP
                 rv = 0
-            amps = [0]*len(self.narrow_center)
+            amps = [0]*len(self.narrow_center[1:])
         elif self.mode == 'Gaussian':
             li_ew, *amps, const = MAP
             rv = self.broad_fit['rv']

@@ -1,9 +1,12 @@
 import numpy as np
 from breidablik.interpolate.spectra import Spectra
 from breidablik.analysis import read
-from astro_tools import SpecAnalysis, vac_to_air
+from broaden import Conv
+from astro_tools import SpecAnalysis
 from scipy.stats import norm
+from astro_tools import vac_to_air
 from scipy.interpolate import CubicSpline
+import matplotlib.pyplot as plt
 
 _c = 299792.458 # speed of light in km s^-1 
 # optimised from 8s for 100 spectra to 2s - cut mainly, gaussian broadening versions don't make too much of a difference
@@ -11,6 +14,8 @@ _spectra = Spectra()
 # cut to 6703 - 6712 (a little bit extra for rv shift)
 _spectra.cut_models = _spectra.models[136:298]
 _wl = vac_to_air(read.get_wavelengths()*10)[136:298]
+# convolution setup
+conv = Conv(_wl, center=6707.8139458)
 
 def bline(x, ew, std, rv, teff, logg, feh, ew_to_abund, min_ew, grid=None):
     '''Li line profiles from breidablik or interpolation grid.
