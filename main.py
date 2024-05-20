@@ -125,7 +125,7 @@ if __name__ == '__main__':
         data = []
 
     with Pool(args.threads) as p:
-        print(p.map(run, objectids))
+        list(p.map(run, objectids))
         
     if args.save and (len(data) > 0): 
         data = np.array(data)
