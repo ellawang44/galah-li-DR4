@@ -78,7 +78,7 @@ def run(i):
         fitspec.plot_broad(spectra_broad)
         # plot Li region
         fitspec.plot_li(spectra, mode='minimize')
-        if fitspec.run_res[fitspec.runs]['results']['samples'] is not None:
+        if fitspec.run_res[fitspec.runs]['results'] is not None:
             # plot cornerplot
             fitspec.plot_corner()
             # plot Li region
