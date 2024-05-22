@@ -124,9 +124,13 @@ if __name__ == '__main__':
     if args.save:
         data = []
 
-    with Pool(args.threads) as p:
-        list(p.map(run, objectids))
-        
+    if args.threads == 1:
+        for i in objectids:
+            run(i)
+    else:
+        with Pool(args.threads) as p:
+            list(p.map(run, objectids))
+    
     if args.save and (len(data) > 0): 
         data = np.array(data)
         x = np.rec.array([
