@@ -1,9 +1,11 @@
 import numpy as np
 from breidablik.interpolate.spectra import Spectra
 from breidablik.analysis import read
-from astro_tools import SpecAnalysis, vac_to_air
+from astro_tools import SpecAnalysis
 from scipy.stats import norm
+from astro_tools import vac_to_air
 from scipy.interpolate import CubicSpline
+import matplotlib.pyplot as plt
 
 _c = 299792.458 # speed of light in km s^-1 
 # optimised from 8s for 100 spectra to 2s - cut mainly, gaussian broadening versions don't make too much of a difference

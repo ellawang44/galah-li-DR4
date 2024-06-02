@@ -78,6 +78,10 @@ def write_loose(split_dates):
     '''Write a bunch of loose qsub jobs
     '''
 
+    # make sure directory exists first
+    if not os.path.isdir('qsub_dir'):
+        os.mkdir('qsub_dir')
+
     for key in split_dates.keys():
         with open('qsub_loose_template', 'r') as f:
             raw = template(f.read())

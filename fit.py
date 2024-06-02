@@ -736,10 +736,8 @@ def filter_spec(spec, sigma=5):
         Filtered spectrum, in same dictionary as input.
     '''
 
-    # filter 0 flux error
-    mask = spec['sob_norm'] > 0
     # filter negative flux
-    mask = mask & (spec['sob_norm'] >= 0)
+    mask = spec['sob_norm'] >= 0
     # filter sigma too small, if too small change to medium
     medium_sig = np.nanmedian(spec['uob_norm'])
     mask_medium = spec['uob_norm'] < medium_sig/10 # allow 1 order of magnitude
@@ -752,6 +750,18 @@ def filter_spec(spec, sigma=5):
     spec['sob_norm'] = spec['sob_norm'][mask]
     spec['wave_norm'] = spec['wave_norm'][mask]
     return spec
+
+def broken_spec(spec):
+    '''Filter broken spectra out. 
+    '''
+
+    # weird normalisation
+    if np.all(spec['sob_norm'] < 0.5):
+        return True
+    # not enough pixels
+    if len(spec['wave_norm']) < 50:
+        return True
+    return False
 
 def amp_to_init(amps, std, const, rv=0):
     '''convert amplitudes to initial guess (ew & include std, rv)
