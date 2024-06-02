@@ -23,4 +23,4 @@ DR = 'galah_dr4_allstar_240207.fits'
 output_directory = '/g/data/y89/xw5841/galah-li-DR4/results'
 
 # breidablik model directory 
-model_path = '/priv/avatar/ellawang/galah-li/model'
+model_path = '/g/data1a/y89/xw5841/galah-li-DR4/model'
