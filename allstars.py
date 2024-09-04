@@ -12,9 +12,9 @@ from astropy.table import Table
 
 # define variables and functions required for the analysis
 output_directory = 'results'
-def grid_check(teffs, loggs, fehs):
+def grid_check(teffs, loggs, fehs, filename='grid_snapshot'):
     '''Parallelised version of grid check from breidablik'''
-    with open('grid_snapshot.txt', 'r') as f:
+    with open(f'{filename}.txt', 'r') as f:
         t_step, m_step = np.float_(f.readline().split())
         grid = np.loadtxt(f)
     grid[:,0] = np.round(grid[:,0]*2)/2
@@ -33,8 +33,8 @@ sigma_num = 2 # sigma that we make the detection cutoff at
 
 start = time.time()
 # read in data and combine into 1 array - it doesn't take too long to run.
-dtype = [('sobject_id', '<f8'), ('ew_li', '<f8'), ('CN1', '<f8'), ('Fe', '<f8'), ('CN2', '<f8'), ('V/Ce', '<f8'), ('?1', '<f8'), ('?2', '<f8'), ('li_std', '<f8'), ('rv', '<f8'), ('err_low', '<f8'), ('err_upp', '<f8'), ('norris', '<f8'), ('snr', '<f8'), ('minchisq', '<f8'), ('edge_ind', '<f8')] # need this to grab array quickly
-dtype2 = [('sobject_id', '<i8'), ('ew_li', '<f8'), ('CN1', '<f8'), ('Fe', '<f8'), ('CN2', '<f8'), ('V/Ce', '<f8'), ('?1', '<f8'), ('?2', '<f8'), ('li_std', '<f8'), ('rv', '<f8'), ('err_low', '<f8'), ('err_upp', '<f8'), ('norris', '<f8'), ('snr', '<f8'), ('minchisq', '<f8'), ('edge_ind', '<f8')] # this is the actual one
+dtype = [('sobject_id', '<f8'), ('ew_li', '<f8'), ('CN1', '<f8'), ('Fe', '<f8'), ('CN2', '<f8'), ('V/Ce', '<f8'), ('?1', '<f8'), ('?2', '<f8'), ('li_std', '<f8'), ('rv', '<f8'), ('err_low', '<f8'), ('err_upp', '<f8'), ('norris', '<f8'), ('snr', '<f8'), ('minchisq', '<f8'), ('edge_ind', '<f8'), ('const', '<f8')] # need this to grab array quickly
+dtype2 = [('sobject_id', '<i8'), ('ew_li', '<f8'), ('CN1', '<f8'), ('Fe', '<f8'), ('CN2', '<f8'), ('V/Ce', '<f8'), ('?1', '<f8'), ('?2', '<f8'), ('li_std', '<f8'), ('rv', '<f8'), ('err_low', '<f8'), ('err_upp', '<f8'), ('norris', '<f8'), ('snr', '<f8'), ('minchisq', '<f8'), ('edge_ind', '<f8'), ('const', '<f8')] # this is the actual one
 keys = os.listdir(output_directory)
 data = []
 for key in keys:
@@ -71,6 +71,9 @@ print('no. with bad posterior (A(Li))', np.sum(flag_ali_err))
 ffnn = FFNN(model=model_path+'/rew')
 scalar = Scalar()
 scalar.load(model_path+'/rew/scalar.npy')
+marcs = FFNN(model=model_path+'/marcs')
+scalar_marcs = Scalar()
+scalar_marcs.load(model_path+'/marcs/scalar.npy')
 
 # crossmatch to GALAH
 DR = pd.DataFrame(np.load('data/GALAH_DR.npy'))
@@ -80,6 +83,7 @@ data = data.to_records()
 
 # grid check
 in_grid = grid_check(data['teff'], data['logg'], data['fe_h'])
+in_grid_marcs = grid_check(data['teff'], data['logg'], data['fe_h'], filename='grid_snapshot_marcs')
 print('inside grid', np.sum(in_grid))
 # check if there exists any teff in grid, but both errors outside of grid
 lgrid = grid_check(data['teff']-data['e_teff'], data['logg'], data['fe_h'])
@@ -88,7 +92,7 @@ mask_grid = in_grid & ~lgrid & ~ugrid & ~np.isnan(data['e_teff'])
 print('value in grid err out grid', np.sum(mask_grid))
 # because circle
 
-# chisq cut TODO
+# chisq cut
 # no chisq cut is done because it will throw out some high S/N stars as well as bad fits
 
 # define detections and upper limits
@@ -110,9 +114,11 @@ REW_upp_lim = np.log10(upp_lim / center)
 # MLE
 X_test = np.array([data['teff'], data['logg'], data['fe_h'], REW]).T
 y_test = ffnn.forward(scalar.transform(X_test)).flatten()
+y_test_marcs = marcs.forward(scalar_marcs.transform(X_test)).flatten()
 # upper lim
 X_test_upp_lim = np.array([data['teff'], data['logg'], data['fe_h'], REW_upp_lim]).T
 y_test_upp_lim = ffnn.forward(scalar.transform(X_test_upp_lim)).flatten()
+y_test_upp_lim_marcs = marcs.forward(scalar_marcs.transform(X_test)).flatten()
 # error in REW
 X_test_lr = np.array([data['teff'], data['logg'], data['fe_h'], REW_l]).T
 X_test_ur = np.array([data['teff'], data['logg'], data['fe_h'], REW_u]).T
@@ -123,6 +129,8 @@ y_test[non_det] = np.nan
 y_test_lr[non_det] = np.nan
 y_test_ur[non_det] = np.nan
 y_test_upp_lim[~non_det] = np.nan
+y_test_marcs[non_det] = np.nan
+y_test_upp_lim_marcs[~non_det] = np.nan
 # error in teff
 X_test_lt = np.array([data['teff']-data['e_teff'], data['logg'], data['fe_h'], REW]).T
 X_test_ut = np.array([data['teff']+data['e_teff'], data['logg'], data['fe_h'], REW]).T
@@ -145,15 +153,11 @@ end = time.time()
 print('time', end - start)
 
 # write allstar catalogue
-x = np.rec.array([
+x = [
     data['sobject_id'],
-    data['tmass_id'],
-    data['teff'],
-    data['e_teff'],
-    data['logg'],
-    data['e_logg'],
-    data['fe_h'],
-    data['e_fe_h'],
+    data['tmass_id'].astype(str),
+    data['li_std']*2.35482*299792.458/6707.814, # convert from \AA to km/s
+    data['rv'],
     data['ew_li']*1000, # AA to mAA
     data['err_low']*1000,
     data['err_upp']*1000,
@@ -163,60 +167,51 @@ x = np.rec.array([
     y_test - y_test_lr,
     y_test_ur - y_test,
     ((y_test - y_test_lt) + (y_test_ut - y_test))/2,
-    data['minchisq'],
+    np.int_(non_det) + 2*np.int_(~in_grid) + 4*np.int_(flag_ali_err) + 8*np.int_(flag_cont),
+    y_test_marcs,
+    y_test_upp_lim_marcs,
+    np.int_(non_det) + 2*np.int_(~in_grid_marcs) + 4*np.int_(flag_ali_err) + 8*np.int_(flag_cont),
+    data['teff'],
+    data['e_teff'],
+    data['logg'],
+    data['e_logg'],
+    data['fe_h'],
+    data['e_fe_h'],
     data['flag_sp'],
     data['flag_fe_h'],
-    np.int_(non_det) + 2*np.int_(~in_grid) + 4*np.int_(flag_ali_err) + 8*np.int_(flag_cont),
-    data['li_std']*2.35482*299792.458/6707.814, # convert from \AA to km/s
-    data['rv'],
-    data['snr_c3_iraf'],
-    data['CN1'],
-    data['Fe'],
-    data['CN2'],
-    data['V/Ce'],
-    data['?1'],
-    data['?2']
-    ],
-    dtype=[
-        ('sobject_id', int),
-        ('tmass_id', '<U16'),
-        ('teff_DR4', np.float64),
-        ('e_teff_DR4', np.float64),
-        ('logg_DR4', np.float64),
-        ('e_logg_DR4', np.float64),
-        ('fe_h_DR4', np.float64),
-        ('e_fe_h_DR4', np.float64),
-        ('EW', np.float64),
-        ('e_EW_low', np.float64),
-        ('e_EW_upp', np.float64),
-        ('e_EW_norris', np.float64),
-        ('ALi', np.float64),
-        ('ALi_upp_lim', np.float64),
-        ('e_ALi_low', np.float64),
-        ('e_ALi_upp', np.float64),
-        ('e_ALi_teff', np.float64),
-        ('minchisq', np.float64),
-        ('flag_sp_DR4', int),
-        ('flag_fe_h_DR4', int),
-        ('flag_ALi', int),
-        ('fwhm_li', np.float64),
-        ('rv', np.float64),
-        ('snr', np.float64),
-        ('CN1', np.float64),
-        ('Fe', np.float64),
-        ('CN2', np.float64),
-        ('V/Ce', np.float64),
-        ('?1', np.float64),
-        ('?2', np.float64)
+    data['snr_c3_iraf']
+    ]
+names = ['sobject_id',
+        'tmass_id',
+        'fwhm_Li',
+        'delta_rv_6708',
+        'EW',
+        'e_EW_low',
+        'e_EW_upp',
+        'e_EW_norris',
+        'ALi',
+        'ALi_upp_lim',
+        'e_ALi_low',
+        'e_ALi_upp',
+        'e_ALi_teff',
+        'flag_ALi',
+        'ALi_1D',
+        'ALi_1D_upp_lim',
+        'flag_ALi_1D',
+        'teff_DR4',
+        'e_teff_DR4',
+        'logg_DR4',
+        'e_logg_DR4',
+        'fe_h_DR4',
+        'e_fe_h_DR4',
+        'flag_sp_DR4',
+        'flag_fe_h_DR4',
+        'snr_c3_iraf_DR4'
         ]
-    )
-np.save(f'{main_directory}/allstars.npy', x)
 
-'''
 dat = Table(x, names=names)
-if os.path.exists(f'{main_directory}/GALAH_DR3_VAC_li_allstar_v2.fits'):
+if os.path.exists(f'{main_directory}/GALAH_DR4_VAC_li_allstar.fits'):
     print('allstar fits exists')
 else:
     print('writing allstar')
-    dat.write(f'{main_directory}/GALAH_DR3_VAC_li_allstar_v2.fits', format='fits')
-'''
+    dat.write(f'{main_directory}/GALAH_DR4_VAC_li_allstar.fits', format='fits')

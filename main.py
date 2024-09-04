@@ -35,6 +35,7 @@ def run(i):
     # cut to broad region for std fitting
     spectra = cut(spectra, 6695, 6719)
     spectra = filter_spec(spectra) 
+
     spectra_broad = copy.deepcopy(spectra)
     if len(spectra['wave_norm']) == 0: # cut doesn't work if this is []
         return None
@@ -66,13 +67,13 @@ def run(i):
 
         # fit li region
         fitspec.fit_li(spectra) 
-
+        
         # get error
         fitspec.posterior(spectra) # calculates the error approx and posterior
 
         if args.save_fit:
             fitspec.save(f'{info_directory}/fits/{i}.npy')
-        
+
     if args.plot:
         # plot broad region
         fitspec.plot_broad(spectra_broad)
@@ -91,7 +92,7 @@ def run(i):
             li_fit = fitspec.li_init_fit
             li_fit['err'] = [np.nan, np.nan]
             
-        data_line = [i, *li_fit['amps'], li_fit['std'], li_fit['rv'], *li_fit['err'], fitspec.norris, SNR[ind], li_fit['minchisq'], fitspec.run_res[fitspec.runs]['edge_ind']]
+        data_line = [i, *li_fit['amps'], li_fit['std'], li_fit['rv'], *li_fit['err'], fitspec.norris, SNR[ind], li_fit['minchisq'], fitspec.run_res[fitspec.runs]['edge_ind'], li_fit['const']]
         data.append(data_line)
 
 if __name__ == '__main__':
@@ -149,7 +150,8 @@ if __name__ == '__main__':
             data[:,12],
             data[:,13],
             data[:,14],
-            data[:,15]
+            data[:,15],
+            data[:,16]
             ], 
             dtype=[
                 ('sobject_id', int),
@@ -167,7 +169,8 @@ if __name__ == '__main__':
                 ('norris', np.float64),
                 ('snr', np.float64),
                 ('minchisq', np.float64),
-                ('edge_ind', np.float64)
+                ('edge_ind', np.float64),
+                ('const', np.float64)
                 ]
             )
         np.save(f'{output_directory}/{args.key}.npy', x)
