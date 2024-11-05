@@ -5,7 +5,7 @@ import os
 import numpy as np
 import matplotlib.pyplot as plt
 from fit import filter_spec, broken_spec
-from synth import fwhm_to_std
+from synth import fwhm_to_std, _c
 import argparse
 from run import FitSpec
 from config import *
@@ -19,7 +19,7 @@ SNR = data['snr_c3_iraf']
 teff = data['teff']
 logg = data['logg']
 feh = data['fe_h'] 
-vbroad = fwhm_to_std(data['vbroad']*6707.814/299792.458) # \AA, std
+vbroad = fwhm_to_std(data['vbroad']*6707.814/_c) # \AA, std
 fwhm = np.load(f'{info_directory}/fwhm.npy')
 assert np.allclose(fwhm[:,0], sobject_id) # required so the fwhm values are matched to the correct sobject_ids
 galah_psf = fwhm_to_std(fwhm[:,1]) # \AA, std
@@ -47,7 +47,7 @@ def run(i):
 
     # identify object
     ind = np.where(i==sobject_id)[0][0]
-    rv_lim = galah_std[ind]/6707.814*299792.458 # km/s
+    rv_lim = galah_std[ind]/6707.814*_c # km/s
 
     # no galah fwhm, skip
     if np.isnan(galah_std[ind]):

@@ -1,5 +1,5 @@
 from fit import FitBroad, FitG, FitGFixed, FitB, FitBFixed, iter_fit, amp_to_init, pred_amp, cc_rv, _wl, bline, gline, chisq
-from synth import _spectra, Grid
+from synth import _spectra, Grid, _c
 import numpy as np
 import matplotlib.pyplot as plt
 from breidablik.interpolate.spectra import Spectra
@@ -44,7 +44,6 @@ class FitSpec:
         self.feh = feh
         self.rv_lim = rv_lim # don't need this parameter if you aren't fitting
         self.li_center = 6707.8139458 # weighted mean of smith98 Li7 line centers
-        self.c = 299792.458 # speed of light in km/s
         if self.grid_check(np.array([teff]), np.array([logg]), np.array([feh]))[0]: # valid sp from galah
             self.mode = 'Breidablik'
         else:
@@ -648,8 +647,8 @@ class FitSpec:
             axes.fill_between(spectra['wave_norm'], lower, y2=upper, alpha=0.5)
 
         # show chisq region
-        axes.axvline(self.narrow_center[1]*(1+fit['rv']/self.c)-self.std*2)
-        axes.axvline(self.narrow_center[-1]*(1+fit['rv']/self.c)+self.std*2)
+        axes.axvline(self.narrow_center[1]*(1+fit['rv']/_c)-self.std*2)
+        axes.axvline(self.narrow_center[-1]*(1+fit['rv']/_c)+self.std*2)
         
         axes.legend()
         if ax is None:

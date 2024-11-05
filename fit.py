@@ -633,7 +633,7 @@ def pred_amp(wl_obs, flux_obs, flux_err, centers, rv=0, perc=95, set_cont=False)
     else:
         cont = np.percentile(flux_obs, perc)
     # predict amplitudes
-    inds = np.array([np.argmin(np.abs(wl_obs - i*(1+rv/299792.458))) for i in centers])
+    inds = np.array([np.argmin(np.abs(wl_obs - i*(1+rv/_c))) for i in centers])
     amps = (1 - (flux_obs/cont)[inds])*1.01 # bit bigger because sampling
     amps[amps < 0] = 0 # set negative amp to 0, chisq is inf otherwise
     err = flux_err[inds]
