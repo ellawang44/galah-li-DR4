@@ -5,7 +5,7 @@ from scipy.stats import norm
 
 class UNFitter():
 
-    def __init__(self, wl_obs, flux_obs, flux_err, fitter, constraints, mode, metal_poor, opt=None, nwalkers=8, run=True, grid=None, fit_rv=True):
+    def __init__(self, wl_obs, flux_obs, flux_err, fitter, constraints, mode, poorly_constrained, opt=None, nwalkers=8, run=True, grid=None, fit_rv=True):
         self.wl_obs = wl_obs
         self.flux_obs = flux_obs
         self.flux_err = flux_err
@@ -16,7 +16,7 @@ class UNFitter():
         self.constraints = constraints
         ndim = len(self.constraints)
         self.mode = mode
-        self.metal_poor = metal_poor
+        self.poorly_constrained = poorly_constrained
         # randomise initial position of walkers
         p0 = np.zeros((nwalkers, ndim))
         for i in range(nwalkers):
@@ -24,7 +24,7 @@ class UNFitter():
                 minP, maxP = constraints[j]
                 p0[i][j] = np.random.uniform(minP, maxP)
         # names of columns
-        if metal_poor:
+        if poorly_constrained:
             if fit_rv:
                 param_names = ['Li', 'rv', 'const']
             else:
@@ -74,7 +74,7 @@ class UNFitter():
         param: the parameters of the current iteration
         The likelihood function, logged so you can sum
         '''
-        if self.metal_poor:
+        if self.poorly_constrained:
             rv = 0
             std = self.fitter.std
         else:

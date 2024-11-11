@@ -69,7 +69,7 @@ def bprof(ew, std, teff, logg, feh, ew_to_abund, min_ew):
         Used in breidablik, logg of star 
     feh : float, optional
         Used in breidablik, feh of star 
-    ew_to_abund : object, optional
+    ew_to_abund : object
         Converting EW to A(Li), used in Breidablik since the input there is A(Li), but the input to this function is EW. 
     min_ew : float
         The EW corresponding to A(Li) = -0.5, used for mirroring to emission.

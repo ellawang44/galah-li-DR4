@@ -53,11 +53,11 @@ def read_meta(directory=info_directory):
 
 def read_spectra(sobject_id):
     """
-    Read in all available in CCD3 and give back a dictionary
+    Read in stellar spectra and give back a dictionary
     """
     
-    DR3 = np.load(f'{info_directory}/GALAH_DR.npy')
-    if not (sobject_id in DR3['sobject_id']):
+    DR = np.load(f'{info_directory}/GALAH_DR.npy')
+    if not (sobject_id in DR['sobject_id']):
         return None # some stars aren't published. politics, we ignore these stars anyway
         
     # Check if FITS files already available in working directory
@@ -65,12 +65,11 @@ def read_spectra(sobject_id):
 
     spectrum = dict()
     fits = pyfits.open(fits_files)
-            
+    
     # Extract wavelength grid for the reduced spectrum
     spectrum['wave_norm'] = fits[1].data['wave']
     spectrum['sob_norm']  = fits[1].data['sob']
     spectrum['uob_norm']  = fits[1].data['uob']
-    #TODO: CDELT is gone
     
     fits.close()
 
@@ -86,6 +85,7 @@ def cut(spectrum, lower, upper):
     upper : float
         The upper value to cut the specturm to, in Angstroms
     '''
+
     wl_mask = (lower <= spectrum['wave_norm']) & (spectrum['wave_norm'] <= upper)
     spectrum['wave_norm'] = spectrum['wave_norm'][wl_mask]
     spectrum['sob_norm'] = spectrum['sob_norm'][wl_mask]

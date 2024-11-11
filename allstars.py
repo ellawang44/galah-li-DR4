@@ -13,7 +13,8 @@ from astropy.table import Table
 # define variables and functions required for the analysis
 output_directory = 'results'
 def grid_check(teffs, loggs, fehs, filename='grid_snapshot'):
-    '''Parallelised version of grid check from breidablik'''
+    '''Parallelised version of grid check from breidablik
+    Unfortunately this can get very memory intensive. This was fine in DR3 but in DR4 you will need to request an interactive node with ~400GB memory. Sorry.'''
     with open(f'{filename}.txt', 'r') as f:
         t_step, m_step = np.float_(f.readline().split())
         grid = np.loadtxt(f)

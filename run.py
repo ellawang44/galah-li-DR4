@@ -94,7 +94,7 @@ class FitSpec:
         self.ew_to_abund = lambda x: CubicSpline(ews, abunds)(x)
 
     def fit_broad(self, spectra, center=np.array([6696.085, 6698.673, 6703.565, 6705.101, 6710.317, 6711.819, 6713.095, 6713.742, 6717.681])):
-        '''Fit the broad region of the spectrum, ews, std simultaneously. None if the star is metal-poor (less than 3 lines with amplitudes above noise).
+        '''Fit the broad region of the spectrum, ews, std simultaneously. None if the star is poorly constrained (less than 3 lines with amplitudes above noise).
 
         Parameters
         ----------
@@ -107,16 +107,16 @@ class FitSpec:
 
         res = iter_fit(spectra['wave_norm'], spectra['sob_norm'], spectra['uob_norm'], center=center, std=self.std, rv_lim=self.rv_lim)
         if res is None: # poorly constrained
-            self.metal_poor = True
+            self.poorly_constrained = True
             self.broad_fit = None
         else: # well constrained
-            self.metal_poor = False
+            self.poorly_constrained = False
             self.broad_fit = res
         # save the centers used
         self.broad_center = center
     
     def mp_init(self, spectra):
-        '''Init values for metal poor fit.
+        '''Init values for poorly constrained fit.
         
         Parameters
         ----------
@@ -125,7 +125,7 @@ class FitSpec:
 
         Returns
         -------
-        init : 1darray
+        init : dict
             Initial values.
         '''
         
@@ -147,14 +147,12 @@ class FitSpec:
         
         self.narrow_center = center # save centers used
         
-        # if any sp is nan, then don't do fit, because Breidablik breaks 
-        # these stars will be taken out later down the line anyway when EW -> A(Li)
-        # so it doesn't really matter what is saved in here
+        # if any sp is nan, then fit with Gaussian, because Breidablik breaks 
         if self.mode == 'Gaussian':
             self.fit_gaussian(spectra)
             return None
 
-        if self.metal_poor:
+        if self.poorly_constrained:
             # if metal poor, no CN, because otherwise it's uncontrained again
             fitter = FitBFixed([self.li_center], self.std, 0, self.teff, self.logg, self.feh, self.ew_to_abund, self.min_ew, max_ew=self.max_ew)
             init = self.mp_init(spectra)
@@ -194,7 +192,7 @@ class FitSpec:
             np.array([6707.8139458, 6706.730, 6707.433, 6707.545, 6708.096, 6708.810, 6709.011]))
         '''
 
-        if self.metal_poor:
+        if self.poorly_constrained:
             # if metal poor, no CN, because otherwise it's uncontrained again
             fitter = FitGFixed(center=[self.li_center], std=self.std, rv=0)
             init = self.mp_init(spectra)
@@ -231,7 +229,7 @@ class FitSpec:
         Returns
         -------
         bad : bool
-            True if the spectra is bad, True otherwise. 
+            True if the spectra is bad, False otherwise. 
         '''
 
         # below 0 or extremely above 1 spectra
@@ -266,26 +264,26 @@ class FitSpec:
         Returns
         -------
         fitter : object
-            The fitter object that contains the model. Different depending on mode (Breidablik or Gaussian) and metal-poor. 
+            The fitter object that contains the model. Different depending on mode (Breidablik or Gaussian) and poorly constrained. 
         bounds : 2darray
             The boundary conditions for the walkers. 
         grid : object
             For speeding up the calculations. Gaussian convolution for rotation is slow, instead we create a grid at certain abundances and vsini, then cubic spline interpolation along this grid. See synth.py
         '''
-        if self.metal_poor and self.mode == 'Breidablik' and fit_rv:
+        if self.poorly_constrained and self.mode == 'Breidablik' and fit_rv:
             fitter = FitB(self.teff, self.logg, self.feh, self.std, self.ew_to_abund, self.min_ew, max_ew=self.max_ew, rv_lim=self.rv_lim)
             opt = fitter.get_init(self.li_init_fit)
             bounds = [(max(opt[0]-self.norris*li_factor, -self.max_ew), min(opt[0]+self.norris*li_factor, self.max_ew)),
                     (-self.rv_lim, self.rv_lim),
                     (opt[-1]-const_range, opt[-1]+const_range)
                     ]
-        elif self.metal_poor and self.mode == 'Breidablik' and not fit_rv:
+        elif self.poorly_constrained and self.mode == 'Breidablik' and not fit_rv:
             fitter = FitBFixed([self.li_center], self.std, 0, self.teff, self.logg, self.feh, self.ew_to_abund, self.min_ew, max_ew=self.max_ew)
             opt = fitter.get_init(self.li_init_fit)
             bounds = [(max(opt[0]-self.norris*li_factor, -self.max_ew), min(opt[0]+self.norris*li_factor, self.max_ew)),
                     (opt[-1]-const_range, opt[-1]+const_range)
                     ]
-        elif not self.metal_poor and self.mode == 'Breidablik':
+        elif not self.poorly_constrained and self.mode == 'Breidablik':
             fitter = FitBFixed(self.narrow_center[1:], self.std, self.li_init_fit['rv'], self.teff, self.logg, self.feh, self.ew_to_abund, self.min_ew, max_ew=self.max_ew)
             opt = fitter.get_init(self.li_init_fit)
             bounds = [(max(opt[0]-self.norris*li_factor, -self.max_ew), min(opt[0]+self.norris*li_factor, self.max_ew)),
@@ -297,20 +295,20 @@ class FitSpec:
                     (max(0, opt[6]-self.norris*blend_factor), opt[6]+self.norris*blend_factor),
                     (opt[-1]-const_range, opt[-1]+const_range)
                     ]
-        elif self.metal_poor and self.mode == 'Gaussian' and fit_rv:
+        elif self.poorly_constrained and self.mode == 'Gaussian' and fit_rv:
             fitter = FitG(std=self.std, rv_lim=self.rv_lim)
             opt = fitter.get_init(self.li_init_fit)
             bounds = [(opt[0]-self.norris*li_factor, opt[0]+self.norris*li_factor),
                     (-self.rv_lim, self.rv_lim),
                     (opt[-1]-const_range, opt[-1]+const_range)
                     ]
-        elif self.metal_poor and self.mode == 'Gaussian' and not fit_rv:
+        elif self.poorly_constrained and self.mode == 'Gaussian' and not fit_rv:
             fitter = FitGFixed([self.li_center], std=self.std, rv=0)
             opt = fitter.get_init(self.li_init_fit)
             bounds = [(opt[0]-self.norris*li_factor, opt[0]+self.norris*li_factor),
                     (opt[-1]-const_range, opt[-1]+const_range)
                     ]
-        elif not self.metal_poor and self.mode == 'Gaussian':
+        elif not self.poorly_constrained and self.mode == 'Gaussian':
             fitter = FitGFixed(self.narrow_center, self.std, rv=self.broad_fit['rv'])
             opt = fitter.get_init(self.li_init_fit)
             bounds = [(opt[0]-self.norris*li_factor, opt[0]+self.norris*li_factor),
@@ -336,7 +334,7 @@ class FitSpec:
         
         # run 
         start = time.time()
-        un_fitter = UNFitter(spectra['wave_norm'], spectra['sob_norm'], spectra['uob_norm'], fitter, bounds, mode=self.mode, metal_poor=self.metal_poor, grid=grid, fit_rv=fit_rv)
+        un_fitter = UNFitter(spectra['wave_norm'], spectra['sob_norm'], spectra['uob_norm'], fitter, bounds, mode=self.mode, poorly_constrained=self.poorly_constrained, grid=grid, fit_rv=fit_rv)
         end = time.time()
         results = un_fitter.results
         t = end - start
@@ -393,8 +391,8 @@ class FitSpec:
         fit_rv = False
         self.run_post_widen(spectra, fit_rv=fit_rv)
 
-        # rerun if detect in metal poor
-        if self.metal_poor:
+        # rerun if detect in poorly constrained
+        if self.poorly_constrained:
             sample_stats = Stats(sample=self.run_res[self.runs]['results']['samples'][:,0], bounds=self.run_res[self.runs]['bounds'][0])
             err_low = sample_stats.MLE - sample_stats.err_low
             if sample_stats.MLE >= err_low*2:
@@ -408,7 +406,7 @@ class FitSpec:
         sample_stats = Stats(sample=sample[:,0], bounds=bounds[0])
         MAP, _, _ = self.get_map(sample)
         err = [sample_stats.err_low, sample_stats.err_upp]
-        if self.metal_poor:
+        if self.poorly_constrained:
             if fit_rv:
                 li_ew, rv, const = MAP
             else:
@@ -434,6 +432,8 @@ class FitSpec:
 
         Parameters
         ----------
+        chain : ndarray
+            The chain from ultranest
         bins : int, optional
             The number of bins to create the histogram with. 
 
@@ -488,11 +488,11 @@ class FitSpec:
             return True, False, 0
 
         # indicies for ew
-        if self.metal_poor:
+        if self.poorly_constrained:
             inds = [0]
-        elif not self.metal_poor and self.mode == 'Gaussian':
+        elif not self.poorly_constrained and self.mode == 'Gaussian':
             inds = list(range(len(argmax)-1))
-        elif not self.metal_poor and self.mode == 'Breidablik':
+        elif not self.poorly_constrained and self.mode == 'Breidablik':
             inds = list(range(len(argmax)-1))
             del inds[1]
         # check all ews
@@ -528,16 +528,18 @@ class FitSpec:
         return any(edges), False, min(edge_inds)
 
     def get_fitter(self):
+        '''Set up the fitter because it's different depending on the mode we are running in.'''
+
         fit = self.li_fit
         if self.mode == 'Breidablik':
-            if not self.metal_poor:
+            if not self.poorly_constrained:
                 fitter = FitBFixed(center=self.narrow_center[1:], std=self.std, rv=fit['rv'], teff=self.teff, logg=self.logg, feh=self.feh, ew_to_abund=self.ew_to_abund, min_ew=self.min_ew, std_li=fit['std'])
-            elif self.metal_poor:
+            elif self.poorly_constrained:
                 fitter = FitB(self.teff, self.logg, self.feh, self.std, self.ew_to_abund, self.min_ew, std_li=fit['std'])
         elif self.mode == 'Gaussian':
-            if not self.metal_poor:
+            if not self.poorly_constrained:
                 fitter = FitGFixed(center=self.narrow_center, std=self.std, rv=fit['rv'])
-            elif self.metal_poor:
+            elif self.poorly_constrained:
                 fitter = FitG(self.std)
         return fitter
 
@@ -563,7 +565,7 @@ class FitSpec:
 
         # observed spec
         axes.errorbar(spectra['wave_norm'], spectra['sob_norm'], yerr=spectra['uob_norm'], color='black', alpha=0.5, label='observed')
-        # fit if not metal-poor (no fit if metal-poor)
+        # fit if well constrained (no fitwell constrained)
         if self.broad_fit is not None:
             if ax is None:
                 plt.title(f'{self.sid} {self.std:.4f} {self.snr:.2f}')
@@ -614,9 +616,9 @@ class FitSpec:
 
         # Breidablik
         if self.mode == 'Breidablik':
-            if not self.metal_poor:
+            if not self.poorly_constrained:
                 fitter = FitBFixed(center=self.narrow_center[1:], std=self.std, rv=fit['rv'], teff=self.teff, logg=self.logg, feh=self.feh, ew_to_abund=self.ew_to_abund, min_ew=self.min_ew, std_li=fit['std'])
-            elif self.metal_poor:
+            elif self.poorly_constrained:
                 fitter = FitB(self.teff, self.logg, self.feh, self.std, self.ew_to_abund, self.min_ew, std_li=fit['std'])
             # error region
             if mode == 'posterior':
@@ -630,9 +632,9 @@ class FitSpec:
                     upper = np.nan
         # Gaussian
         elif self.mode == 'Gaussian':
-            if not self.metal_poor:
+            if not self.poorly_constrained:
                 fitter = FitGFixed(center=self.narrow_center, std=self.std, rv=fit['rv'])
-            elif self.metal_poor:
+            elif self.poorly_constrained:
                 fitter = FitG(self.std)
             # error region
             if mode == 'posterior':
@@ -721,7 +723,7 @@ class FitSpec:
         '''
         
         names = ['broad_fit', 'broad_center', # broad 
-                'metal_poor',
+                'poorly_constrained',
                 'li_init_fit',
                 'li_fit', 'narrow_center',
                 'mode',

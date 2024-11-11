@@ -7,7 +7,7 @@ from synth import bline, gline, _c, _wl, std_to_fwhm, calc_std
 
 def chisq(wl_obs, flux_obs, flux_err, model, params, bounds=None, wl_left=None, wl_right=None):
     '''Calculate the chisq with bounds. If value is out of bounds, then chisq is inf. Note parameter and bounds need to have same ordering. 
-    wl_left and wl_right need to be both given, or else ignored, it is the region in which to compute the chisq value. Needed for continuum normalisation constant, set to the extreme narrow region centers +- std, including metal-poor stars for consistency. 
+    wl_left and wl_right need to be both given, or else ignored, it is the region in which to compute the chisq value. Needed for continuum normalisation constant, set to the extreme narrow region centers +- std, including poorly constrained stars for consistency. 
     
     Parameters
     ----------
@@ -63,7 +63,7 @@ class FitG:
         std : float
             The std to use for the fit. From GALAH.
         rv_lim : float, optional
-            The limit on rv, mirrored limit on either side, it based on galah vsini.
+            The limit on rv, mirrored limit on either side, it is based on galah vsini.
         '''
 
         self.std = std
@@ -78,7 +78,7 @@ class FitG:
         return [init['amps'][0], init['rv'], init['const']]
 
     def fit(self, wl_obs, flux_obs, flux_err, init):
-        '''Fit std and rv of observed spectrum.
+        '''Fit EW, rv, and continuum of observed spectrum.
         
         Parameters
         ----------
@@ -89,12 +89,12 @@ class FitG:
         flux_err : 1darray
             observed flux error
         init : list
-            The initial EW and std; in that order. 
+            The initial guess, use get_init to format from dictionary 
 
         Returns
         -------
-        fit, minchisq : 1darray, float
-            Fitted parameters: *EW, rv, const; minimum chisq value at best fit.
+        fit : dict
+            Fitted parameters
         '''
         
         # construct bounds
@@ -109,12 +109,12 @@ class FitG:
         return {'li':res.x[0], 'std_li':np.std, 'rv':res.x[1], 'amps':[], 'const':res.x[2], 'minchisq':res.fun}
 
     def model(self, wl_obs, params, plot=False, ax=None, plot_all=False, grid=None):
-        '''Multiplying Gaussians together with a common std. 
+        '''One Gaussian for Li.
 
         wl_obs : np.array
             observed wavelengths
         params : np.array
-            Parameters to the model: *EWs, std
+            Parameters to the model. Use get_init to format from dictionary.
         plot : bool
             If True, turns on plotting.
         ax : matplotlib.axes, optional
@@ -127,7 +127,7 @@ class FitG:
         Returns
         -------
         y : 1darray
-            The model evaluated at given parameters. All gaussians multiplied together.
+            The synthetic spectra model evaluated at given parameters. 
         '''
         
         ew, offset, const = params
@@ -147,7 +147,7 @@ class FitG:
 
 
 class FitGFixed:
-    '''Fits EW for each center given. std and rv are fixed from broad region.
+    '''Fits EW for each center given. rv is fixed from broad region.
     For narrow region, constrained, with nan sp.
     '''
 
@@ -159,7 +159,7 @@ class FitGFixed:
         center : 1darray
             The line centers to be fitted. This should be np.array([6707.814, 6706.730, 6707.433, 6707.545, 6708.096, 6708.961])
         std : float
-            The std found from the broad region.
+            The std to use for the fit. From GALAH.
         rv : float
             The rv found from the broad region.
         '''
@@ -175,7 +175,7 @@ class FitGFixed:
         return [*init['amps'], init['const']]
 
     def fit(self, wl_obs, flux_obs, flux_err, init):
-        '''Fit std of observed spectrum.
+        '''Fit EW and continuum of observed spectrum.
         
         Parameters
         ----------
@@ -186,12 +186,12 @@ class FitGFixed:
         flux_err : 1darray
             observed flux error
         init : list
-            The initial EW; in the order of centers. 
+            The initial guess, use get_init to format from dictionary 
 
         Returns
         -------
-        fit, minchisq : 1darray, float
-            Fitted parameters: *EW, const; minimum chisq value at best fit.
+        fit : dict
+            Fitted parameters
         '''
 
         # construct bounds
@@ -211,7 +211,7 @@ class FitGFixed:
         wl_obs : np.array
             observed wavelengths
         params : np.array
-            Parameters to the model: *EWs, const
+            Parameters to the model. Use get_init to format from dictionary.
         plot : bool
             If True, turns on plotting.
         ax : matplotlib.axes, optional
@@ -224,7 +224,7 @@ class FitGFixed:
         Returns
         -------
         y : 1darray
-            The model evaluated at given parameters. All gaussians multiplied together.
+            The synthetic spectra model evaluated at given parameters. 
         '''
 
         if plot:
@@ -251,7 +251,7 @@ class FitGFixed:
 
 class FitB:
     '''Fits Li EW, rv simultaneously. 
-    Only Li line, for poorly constrained stars
+    Only Li line, for poorly constrained stars, Breidablik line profile
     '''
 
     def __init__(self, teff, logg, feh, std, ew_to_abund, min_ew, max_ew=None, std_li=None, rv_lim=None, ratio=0.75):
@@ -314,12 +314,12 @@ class FitB:
         flux_err : np.array
             observed flux error
         init : list
-            The initial EW, std; in that order. 
+            The initial guess, use get_init to format from dictionary 
         
         Returns
         -------
-        fit, minchisq : 1darray, float
-            Fitted parameters: *EW, std, const; minimum chisq value at best fit.
+        fit : dict
+            Fitted parameters
         '''
         
         # construct bounds
@@ -338,7 +338,7 @@ class FitB:
         wl_obs : np.array
             observed wavelengths
         params : np.array
-            Parameters to be fitted, Li EW, rv.
+            Parameters to the model. Use get_init to format from dictionary.
         plot : bool
             If True, turns on plotting.
         ax : matplotlib.axes, optional
@@ -351,7 +351,7 @@ class FitB:
         Returns
         -------
         y : 1darray
-            The model evaluated at given parameters. Breidablik line profile.
+            The synthetic spectra model evaluated at given parameters. 
         '''
     
         ews, offset, const = params
@@ -369,8 +369,8 @@ class FitB:
 
 
 class FitBFixed:
-    '''Fits Li EW, other ews simltaneously based on the centers given. std and rv are fixed from broad region.
-    For constrained stars
+    '''Fits Li EW, other ews simltaneously based on the centers given. rv is fixed from broad region.
+    For constrained stars, Breidablik line profile
     '''
     
     def __init__(self, center, std, rv, teff, logg, feh, ew_to_abund, min_ew, max_ew=None, std_li=None, ratio=0.75):
@@ -436,12 +436,12 @@ class FitBFixed:
         flux_err : np.array
             observed flux error
         init : list
-            The initial Li EW, other ews, cont norm, in order of centers. 
+            The initial guess, use get_init to format from dictionary 
         
         Returns
         -------
-        fit, minchisq : 1darray, float
-            Fitted parameters: Li EW, *ews, const; minimum chisq value at best fit.
+        fit : dict
+            Fitted parameters
         '''
 
         bounds = [(-self.max_ew, self.max_ew)] # based on cog
@@ -459,7 +459,7 @@ class FitBFixed:
         wl_obs : np.array
             observed wavelengths
         params : np.array
-            Parameters to be fitted, Li EW, const.
+            Parameters to the model. Use get_init to format from dictionary.
         plot : bool
             If True, turns on plotting.
         ax : matplotlib.axes, optional
@@ -472,7 +472,7 @@ class FitBFixed:
         Returns
         -------
         y : 1darray
-            The model evaluated at given parameters. Gaussians multiplied with Breidablik line profile.
+            The synthetic spectra model evaluated at given parameters. 
         '''
 
         if plot:
@@ -502,7 +502,7 @@ class FitBFixed:
 
 class FitBroad:
     '''Fits rv and a EW for each center given. 
-    For broad region.
+    For broad region to measure rv.
     '''
 
     def __init__(self, center, std, rv_lim=None):
@@ -539,15 +539,15 @@ class FitBroad:
         flux_err : 1darray
             observed flux error
         init : list
-            The initial EW and rv; in that order. 
+            The initial guess, use get_init to format from dictionary 
 
         Returns
         -------
-        fit, minchisq : 1darray, float
-            Fitted parameters: *EW, rv; minimum chisq value at best fit.
+        fit : dict
+            Fitted parameters
         '''
         
-        # metal poor star
+        # poorly constrained star
         if init is None:
             return None
 
@@ -567,7 +567,7 @@ class FitBroad:
         wl_obs : np.array
             observed wavelengths
         params : np.array
-            Parameters to the model: *EWs, rv
+            Parameters to the model. Use get_init to format from dictionary.
         plot : bool
             If True, turns on plotting.
         ax : matplotlib.axes, optional
@@ -578,7 +578,7 @@ class FitBroad:
         Returns
         -------
         y : 1darray
-            The model evaluated at given parameters. All gaussians multiplied together.
+            The synthetic spectra model evaluated at given parameters. 
         '''
         
         if plot:
@@ -614,12 +614,12 @@ def pred_amp(wl_obs, flux_obs, flux_err, centers, rv=0, perc=95, set_cont=False)
         observed flux error
     centers : 1darray
         The centers the lines are at -- these are the wls used to find the amplitudes
-    rv : float
-        rv shift, used to shift the centers
-    perc : float
-        The percentile to use for the continuum estimation.
-    set_cont : bool
-        Whether to predict continuum or not
+    rv : float, optional
+        rv shift, used to shift the centers. Default 0. 
+    perc : float, optional
+        The percentile to use for the continuum estimation. Default 95
+    set_cont : bool, optional
+        Set continuum 1. Default False, which means continuum is estimated.
 
     Returns
     -------
@@ -640,7 +640,7 @@ def pred_amp(wl_obs, flux_obs, flux_err, centers, rv=0, perc=95, set_cont=False)
     return amps, err, 1/cont
 
 def check_mp(amps, err):
-    '''check if metal poor star. Criteria is <3 amplitudes above error.
+    '''check if poorly constrained star. Criteria is <3 amplitudes above error.
 
     Parameters
     ----------
@@ -652,7 +652,7 @@ def check_mp(amps, err):
     Returns
     -------
     mp : bool
-        If True, metal-poor star (less than 3 lines detected)
+        If True, then this is a poorly constrained star (less than 3 lines detected)
     '''
 
     mask = amps > err
@@ -723,7 +723,7 @@ def cc_rv(wl, flux, centers, amps, std, rv_init, rv_lim):
     return rvs[np.argmax(ccs)]
 
 def filter_spec(spec, sigma=5):
-    '''filter weird parts of the spectrum out.
+    '''filter weird parts of the spectrum out. Sets extremely small flux errors to the median flux error. GALAH DR3 can underestimate flux error by more than an order of magnitude, massively biasing fits. Did not check if this problem persists in DR4. 
 
     Parameters
     ----------
@@ -755,7 +755,7 @@ def broken_spec(spec):
     '''Filter broken spectra out. 
     '''
 
-    # weird normalisation
+    # weird normalisation, M-type stars suck.
     if np.all(spec['sob_norm'] < 0.5):
         return True
     # not enough pixels
@@ -779,8 +779,8 @@ def amp_to_init(amps, std, const, rv=0):
 
     Returns
     -------
-    init : 1darray
-        The initial guess. [*ews, std], where ews are from amps and std. 
+    init : dict
+        The initial guess. ews are from amps and std. 
     '''
     
     init = list(np.array(amps)*np.sqrt(2*np.pi)*std) # amp to ew
@@ -806,7 +806,7 @@ def iter_fit(wl, flux, flux_err, center, std, rv_lim):
     
     Returns
     -------
-    res : 1darray
+    res : dict
         Iteratively fitted ews, rv
     '''
 
@@ -820,13 +820,13 @@ def iter_fit(wl, flux, flux_err, center, std, rv_lim):
     amps, err, _ = pred_amp(wl, flux, flux_err, center, rv=init_rv, set_cont=True)
     init = amp_to_init(amps, std, 1, rv=init_rv)
 
-    # check metal-poor star
+    # check poorly constrained star
     if check_mp(amps, err):
         return None
 
     # get good initial fit
     res = fitter.fit(wl, flux, flux_err, init)
-    if res is None: # metal poor star
+    if res is None: # poorly constrained star
         return None
     initial_res = copy.copy(res)
 
@@ -841,7 +841,7 @@ def iter_fit(wl, flux, flux_err, center, std, rv_lim):
             print('iterations over 5')
             break
     
-    # check metal-poor again because some fits are bad
+    # check poorly constrained again because some fits are bad
     if check_mp(res['amps'], err):
         return None
     
