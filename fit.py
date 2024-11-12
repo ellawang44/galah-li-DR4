@@ -56,8 +56,7 @@ class FitG:
     '''
 
     def __init__(self, std, rv_lim=None):
-        '''Optional parameters are not needed if only using the model and not fitting. 
-        
+        '''
         Parameters
         ----------
         std : float
@@ -152,8 +151,7 @@ class FitGFixed:
     '''
 
     def __init__(self, center, std, rv):
-        '''Optional parameters are not needed if only using the model and not fitting. 
-        
+        '''
         Parameters
         ----------
         center : 1darray
@@ -255,8 +253,7 @@ class FitB:
     '''
 
     def __init__(self, teff, logg, feh, std, ew_to_abund, min_ew, max_ew=None, std_li=None, rv_lim=None, ratio=0.75):
-        '''Optional parameters are not needed if only using the model and not fitting.
-        
+        '''
         Parameters
         ----------
         teff : float
@@ -374,8 +371,7 @@ class FitBFixed:
     '''
     
     def __init__(self, center, std, rv, teff, logg, feh, ew_to_abund, min_ew, max_ew=None, std_li=None, ratio=0.75):
-        '''Optional parameters are not needed if only using the model and not fitting.
-        
+        '''
         Parameters
         ----------
         center : float
@@ -506,8 +502,7 @@ class FitBroad:
     '''
 
     def __init__(self, center, std, rv_lim=None):
-        '''Optional parameters are not needed if only using the model and not fitting. 
-        
+        '''
         Parameters
         ----------
         center : 1darray

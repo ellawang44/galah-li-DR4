@@ -271,20 +271,20 @@ class FitSpec:
             For speeding up the calculations. Gaussian convolution for rotation is slow, instead we create a grid at certain abundances and vsini, then cubic spline interpolation along this grid. See synth.py
         '''
         if self.poorly_constrained and self.mode == 'Breidablik' and fit_rv:
-            fitter = FitB(self.teff, self.logg, self.feh, self.std, self.ew_to_abund, self.min_ew, max_ew=self.max_ew, rv_lim=self.rv_lim)
+            fitter = FitB(self.teff, self.logg, self.feh, self.std, self.ew_to_abund, self.min_ew, max_ew=self.max_ew, rv_lim=self.rv_lim, std_li=self.li_init_fit['std'])
             opt = fitter.get_init(self.li_init_fit)
             bounds = [(max(opt[0]-self.norris*li_factor, -self.max_ew), min(opt[0]+self.norris*li_factor, self.max_ew)),
                     (-self.rv_lim, self.rv_lim),
                     (opt[-1]-const_range, opt[-1]+const_range)
                     ]
         elif self.poorly_constrained and self.mode == 'Breidablik' and not fit_rv:
-            fitter = FitBFixed([self.li_center], self.std, 0, self.teff, self.logg, self.feh, self.ew_to_abund, self.min_ew, max_ew=self.max_ew)
+            fitter = FitBFixed([self.li_center], self.std, 0, self.teff, self.logg, self.feh, self.ew_to_abund, self.min_ew, max_ew=self.max_ew, std_li=self.li_init_fit['std'])
             opt = fitter.get_init(self.li_init_fit)
             bounds = [(max(opt[0]-self.norris*li_factor, -self.max_ew), min(opt[0]+self.norris*li_factor, self.max_ew)),
                     (opt[-1]-const_range, opt[-1]+const_range)
                     ]
         elif not self.poorly_constrained and self.mode == 'Breidablik':
-            fitter = FitBFixed(self.narrow_center[1:], self.std, self.li_init_fit['rv'], self.teff, self.logg, self.feh, self.ew_to_abund, self.min_ew, max_ew=self.max_ew)
+            fitter = FitBFixed(self.narrow_center[1:], self.std, self.li_init_fit['rv'], self.teff, self.logg, self.feh, self.ew_to_abund, self.min_ew, max_ew=self.max_ew, std_li=self.li_init_fit['std'])
             opt = fitter.get_init(self.li_init_fit)
             bounds = [(max(opt[0]-self.norris*li_factor, -self.max_ew), min(opt[0]+self.norris*li_factor, self.max_ew)),
                     (max(0, opt[1]-self.norris*blend_factor), opt[1]+self.norris*blend_factor),
