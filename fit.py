@@ -2,13 +2,13 @@ import copy
 import numpy as np
 from scipy.optimize import minimize
 import matplotlib.pyplot as plt
-from synth import bline, gline, _c, _wl, std_to_fwhm, calc_std
+from synth import bline, gline, vline, _c, _wl, std_to_fwhm, calc_std
 
 
 def chisq(wl_obs, flux_obs, flux_err, model, params, bounds=None, wl_left=None, wl_right=None):
-    '''Calculate the chisq with bounds. If value is out of bounds, then chisq is inf. Note parameter and bounds need to have same ordering. 
-    wl_left and wl_right need to be both given, or else ignored, it is the region in which to compute the chisq value. Needed for continuum normalisation constant, set to the extreme narrow region centers +- std, including poorly constrained stars for consistency. 
-    
+    '''Calculate the chisq with bounds. If value is out of bounds, then chisq is inf. Note parameter and bounds need to have same ordering.
+    wl_left and wl_right need to be both given, or else ignored, it is the region in which to compute the chisq value. Needed for continuum normalisation constant, set to the extreme narrow region centers +- std, including poorly constrained stars for consistency.
+
     Parameters
     ----------
     wl_obs : 1darray
@@ -18,29 +18,29 @@ def chisq(wl_obs, flux_obs, flux_err, model, params, bounds=None, wl_left=None, 
     flux_err : 1darray
         observed flux error
     model : object
-        Model to evaluate 
+        Model to evaluate
     params : 1darray
         Parameters to the model
     bounds : 1darray, optional
         Bounds for the parameters
     wl_left : float, optional
-        Left wl bound to compute chisq over. 
+        Left wl bound to compute chisq over.
     wl_right : float, optional
-        Right wl bound to compute chisq over. 
+        Right wl bound to compute chisq over.
 
     Returns
     -------
     chisq : float
-        The chisq value 
+        The chisq value
     '''
-   
+
     if bounds is not None:
         assert len(params) == len(bounds)
 
         for p, (l, r) in zip(params, bounds):
             if (p < l) or (r < p):
                 return np.inf
-    
+
     if (wl_left is not None) and (wl_right is not None):
         mask = (wl_left <= wl_obs) & (wl_obs <= wl_right)
         wl_obs = wl_obs[mask]
@@ -51,7 +51,7 @@ def chisq(wl_obs, flux_obs, flux_err, model, params, bounds=None, wl_left=None, 
 
 
 class FitG:
-    '''Fits rv and a EW for each center given. 
+    '''Fits rv and a EW for each center given.
     Only Li line, poorly constrained, when sp is nan.
     '''
 
@@ -78,7 +78,7 @@ class FitG:
 
     def fit(self, wl_obs, flux_obs, flux_err, init):
         '''Fit EW, rv, and continuum of observed spectrum.
-        
+
         Parameters
         ----------
         wl_obs : 1darray
@@ -88,19 +88,19 @@ class FitG:
         flux_err : 1darray
             observed flux error
         init : list
-            The initial guess, use get_init to format from dictionary 
+            The initial guess, use get_init to format from dictionary
 
         Returns
         -------
         fit : dict
             Fitted parameters
         '''
-        
+
         # construct bounds
         bounds = [(-np.inf, np.inf)] # Li EW can be negative
         bounds.append((-self.rv_lim, self.rv_lim)) # given in init
         bounds.append((0.5, 1.5)) # continuum normalisation constant
-        
+
         # fit
         func = lambda x: chisq(wl_obs, flux_obs, flux_err, self.model, x, bounds, wl_left=6706.730*(1+x[1]/_c)-self.std*2, wl_right=6708.961*(1+x[1]/_c)+self.std*2)
         res = minimize(func, self.get_init(init), method='Nelder-Mead')
@@ -117,7 +117,7 @@ class FitG:
         plot : bool
             If True, turns on plotting.
         ax : matplotlib.axes, optional
-            The axis to plot on, if None, then it's the default one. 
+            The axis to plot on, if None, then it's the default one.
         plot_all : bool
             Not used, only here to be consistent with other classes.
         grid : object
@@ -126,22 +126,22 @@ class FitG:
         Returns
         -------
         y : 1darray
-            The synthetic spectra model evaluated at given parameters. 
+            The synthetic spectra model evaluated at given parameters.
         '''
-        
+
         ew, offset, const = params
 
         y = gline(wl_obs, ew, self.std, offset, center=6707.814)
-        
+
         # plot
         if plot:
             if ax is None:
                 ax = plt
             ax.plot(wl_obs, y, label='fit')
             ax.axvline(6707.814*(1+offset/_c), linestyle='--')
-        
+
         y /= const
-       
+
         return y
 
 
@@ -174,7 +174,7 @@ class FitGFixed:
 
     def fit(self, wl_obs, flux_obs, flux_err, init):
         '''Fit EW and continuum of observed spectrum.
-        
+
         Parameters
         ----------
         wl_obs : 1darray
@@ -184,7 +184,7 @@ class FitGFixed:
         flux_err : 1darray
             observed flux error
         init : list
-            The initial guess, use get_init to format from dictionary 
+            The initial guess, use get_init to format from dictionary
 
         Returns
         -------
@@ -196,7 +196,7 @@ class FitGFixed:
         bounds = [(-np.inf, np.inf)] # Li EW can be negative
         bounds.extend([(0, np.inf) for _ in range(len(init['amps'])-1)]) # positive finite EW
         bounds.append((0.5, 1.5)) # continuum normalisation constant
-        
+
         # fit
         func = lambda x: chisq(wl_obs, flux_obs, flux_err, self.model, x, bounds, wl_left=6706.730*(1+self.rv/_c)-self.std*2, wl_right=6708.961*(1+self.rv/_c)+self.std*2)
         res = minimize(func, self.get_init(init), method='Nelder-Mead')
@@ -204,7 +204,7 @@ class FitGFixed:
         return {'li':res.x[0], 'std_li':self.std, 'const':res.x[-1], 'amps':res.x[1:-1], 'rv':self.rv, 'minchisq':res.fun}
 
     def model(self, wl_obs, params, plot=False, ax=None, plot_all=False, grid=None):
-        '''Multiplying Gaussians together with a common std. 
+        '''Multiplying Gaussians together with a common std.
 
         wl_obs : np.array
             observed wavelengths
@@ -213,25 +213,25 @@ class FitGFixed:
         plot : bool
             If True, turns on plotting.
         ax : matplotlib.axes, optional
-            The axis to plot on, if None, then it's the default one. 
+            The axis to plot on, if None, then it's the default one.
         plot_all : bool
             If True, plot each gaussian. Or else plot only final model.
         grid : object
-            Not used. 
+            Not used.
 
         Returns
         -------
         y : 1darray
-            The synthetic spectra model evaluated at given parameters. 
+            The synthetic spectra model evaluated at given parameters.
         '''
 
         if plot:
             if ax is None:
                 ax = plt
-        
+
         *ews, const = params
         y = np.ones(len(wl_obs))
-        
+
         for a, c in zip(ews, self.center):
             y1 = gline(wl_obs, a, self.std, self.rv, center=c)
             if plot_all:
@@ -241,14 +241,122 @@ class FitGFixed:
         if plot:
             ax.plot(wl_obs, y, label='fit')
             ax.axvline(6707.814*(1+self.rv/_c), linestyle='--')
-       
+
+        y /= const
+
+        return y
+
+
+class FitVFixed:
+    '''Fits EW for each center given. rv is fixed from broad region.
+    For narrow region, constrained, with nan sp.
+    '''
+
+    def __init__(self, center, std, rv):
+        '''
+        Parameters
+        ----------
+        center : 1darray
+            The line centers to be fitted. This should be np.array([6707.814, 6706.730, 6707.433, 6707.545, 6708.096, 6708.961])
+        std : float
+            The std to use for the fit. From GALAH.
+        rv : float
+            The rv found from the broad region.
+        '''
+
+        self.center = center
+        self.std = std
+        self.rv = rv
+        # for mcmc
+        self.std_li = std
+
+    def get_init(self, init):
+        '''Construct init list from dict'''
+        return [*init['amps'], init['sigma'], init['gamma'], init['const']]
+
+    def fit(self, wl_obs, flux_obs, flux_err, init):
+        '''Fit EW and continuum of observed spectrum.
+
+        Parameters
+        ----------
+        wl_obs : 1darray
+            observed wavelengths
+        flux_obs : 1darray
+            observed flux
+        flux_err : 1darray
+            observed flux error
+        init : list
+            The initial guess, use get_init to format from dictionary
+
+        Returns
+        -------
+        fit : dict
+            Fitted parameters
+        '''
+
+        # construct bounds
+        bounds = [(-np.inf, np.inf)] # Li EW can be negative
+        bounds.extend([(0, np.inf) for _ in range(len(init['amps'])-1)]) # positive finite EW
+        bounds.extend([(0, np.inf), (0, np.inf)]) # sigma and gamma for voigt profile must be positive
+        bounds.append((0.5, 1.5)) # continuum normalisation constant
+
+        # fit
+        func = lambda x: chisq(wl_obs, flux_obs, flux_err, self.model, x, bounds, wl_left=6706.730*(1+self.rv/_c)-self.std*2, wl_right=6708.961*(1+self.rv/_c)+self.std*2)
+        res = minimize(func, self.get_init(init), method='Nelder-Mead')
+        self.model(wl_obs, res.x, calc_ew=True)
+
+        return {'li':res.x[0], 'ew_li':self.ew_li, 'std_li':self.std, 'sigma':res.x[-3], 'gamma':res.x[-2], 'const':res.x[-1], 'amps':res.x[1:-3], 'rv':self.rv, 'minchisq':res.fun}
+
+    def model(self, wl_obs, params, plot=False, ax=None, plot_all=False, grid=None, calc_ew=False):
+        '''Multiplying Gaussians together with a common std.
+
+        wl_obs : np.array
+            observed wavelengths
+        params : np.array
+            Parameters to the model. Use get_init to format from dictionary.
+        plot : bool
+            If True, turns on plotting.
+        ax : matplotlib.axes, optional
+            The axis to plot on, if None, then it's the default one.
+        plot_all : bool
+            If True, plot each gaussian. Or else plot only final model.
+        grid : object
+            Not used.
+
+        Returns
+        -------
+        y : 1darray
+            The synthetic spectra model evaluated at given parameters.
+        '''
+
+        if plot:
+            if ax is None:
+                ax = plt
+
+        amp_li, *ews, sigma, gamma, const = params
+        y = vline(wl_obs, amp_li, sigma, gamma, self.rv, center=self.center[0])
+        if plot_all:
+            ax.plot(wl_obs, y)
+        if calc_ew:
+            self.ew_li = np.trapz(1-y, x=wl_obs)
+
+        for a, c in zip(ews, self.center[1:]):
+            y1 = gline(wl_obs, a, self.std, self.rv, center=c)
+            if plot_all:
+                ax.plot(wl_obs, y1)
+            y *= y1
+
+        if plot:
+            ax.plot(wl_obs, y, label='fit')
+            ax.axvline(6707.814*(1+self.rv/_c), linestyle='--')
+
         y /= const
 
         return y
 
 
 class FitB:
-    '''Fits Li EW, rv simultaneously. 
+    '''Fits Li EW, rv simultaneously.
     Only Li line, for poorly constrained stars, Breidablik line profile
     '''
 
@@ -259,12 +367,12 @@ class FitB:
         teff : float
             Used in breidablik, teff of star
         logg : float
-            Used in breidablik, logg of star 
+            Used in breidablik, logg of star
         feh : float
-            Used in breidablik, feh of star 
+            Used in breidablik, feh of star
         ew_to_abund : object
             Converting REW to A(Li), used in Breidablik since the input there is A(Li), but the input to this function is EW
-        min_ew : float 
+        min_ew : float
             The EW at A(Li) = -0.5 to mirror to emission on
         max_ew : float, optional
             The maximum EW that is allowed
@@ -311,14 +419,14 @@ class FitB:
         flux_err : np.array
             observed flux error
         init : list
-            The initial guess, use get_init to format from dictionary 
-        
+            The initial guess, use get_init to format from dictionary
+
         Returns
         -------
         fit : dict
             Fitted parameters
         '''
-        
+
         # construct bounds
         bounds = [(-self.max_ew, self.max_ew), # based on cogs
                 (-self.rv_lim, self.rv_lim), # based on galah vsini, except in km/s
@@ -326,7 +434,7 @@ class FitB:
 
         func = lambda x: chisq(wl_obs, flux_obs, flux_err, self.model, x, bounds, wl_left=6706.730*(1+x[1]/_c)-self.std*2, wl_right=6708.961*(1+x[1]/_c)+self.std*2)
         res = minimize(func, self.get_init(init), method='Nelder-Mead')
-       
+
         return {'li':res.x[0], 'std_li':self.std_li, 'const':res.x[-1], 'amps':[], 'rv':res.x[-2], 'minchisq':res.fun}
 
     def model(self, wl_obs, params, plot=False, ax=None, plot_all=False, grid=None):
@@ -339,18 +447,18 @@ class FitB:
         plot : bool
             If True, turns on plotting.
         ax : matplotlib.axes, optional
-            The axis to plot on, if None, then it's the default one. 
+            The axis to plot on, if None, then it's the default one.
         plot_all : bool
             This isn't used, it's just there to be consistent with the other classes.
         grid : object, optional
             The grid to interpolate on, speeds up interpolation. Look at Grid in synth.py
-        
+
         Returns
         -------
         y : 1darray
-            The synthetic spectra model evaluated at given parameters. 
+            The synthetic spectra model evaluated at given parameters.
         '''
-    
+
         ews, offset, const = params
         y = bline(wl_obs, ews, self.std_li, offset, teff=self.teff, logg=self.logg, feh=self.feh, ew_to_abund=self.ew_to_abund, min_ew=self.min_ew, grid=grid)
 
@@ -359,7 +467,7 @@ class FitB:
                 ax = plt
             ax.plot(wl_obs, y, label='fit')
             ax.axvline(6707.814*(1+offset/_c), linestyle='--')
-        
+
         y /= const
 
         return y
@@ -369,7 +477,7 @@ class FitBFixed:
     '''Fits Li EW, other ews simltaneously based on the centers given. rv is fixed from broad region.
     For constrained stars, Breidablik line profile
     '''
-    
+
     def __init__(self, center, std, rv, teff, logg, feh, ew_to_abund, min_ew, max_ew=None, std_li=None, ratio=0.75):
         '''
         Parameters
@@ -383,9 +491,9 @@ class FitBFixed:
         teff : float
             Used in breidablik, teff of star
         logg : float
-            Used in breidablik, logg of star 
+            Used in breidablik, logg of star
         feh : float
-            Used in breidablik, feh of star 
+            Used in breidablik, feh of star
         ew_to_abund : object
             Converting REW to A(Li), used in Breidablik since the input there is A(Li), but the input to this function is EW
         min_ew : float
@@ -393,9 +501,9 @@ class FitBFixed:
         max_ew : float, optional
             The maximum EW that is allowed.
         std_li : float, optional
-            The std that Li needs to achieve the input std, will be calculated if not given. 
+            The std that Li needs to achieve the input std, will be calculated if not given.
         '''
-        
+
         self.center = center
         self.std = std
         self.rv = rv
@@ -432,8 +540,8 @@ class FitBFixed:
         flux_err : np.array
             observed flux error
         init : list
-            The initial guess, use get_init to format from dictionary 
-        
+            The initial guess, use get_init to format from dictionary
+
         Returns
         -------
         fit : dict
@@ -446,7 +554,7 @@ class FitBFixed:
 
         func = lambda x: chisq(wl_obs, flux_obs, flux_err, self.model, x, bounds, wl_left=6706.730*(1+self.rv/_c)-self.std*2, wl_right=6708.961*(1+self.rv/_c)+self.std*2)
         res = minimize(func, self.get_init(init), method='Nelder-Mead')
-        
+
         return {'li':res.x[0], 'std_li':self.std_li, 'const':res.x[-1], 'amps':res.x[1:-1], 'rv':self.rv, 'minchisq':res.fun}
 
     def model(self, wl_obs, params, plot=False, ax=None, plot_all=False, grid=None):
@@ -459,45 +567,45 @@ class FitBFixed:
         plot : bool
             If True, turns on plotting.
         ax : matplotlib.axes, optional
-            The axis to plot on, if None, then it's the default one. 
+            The axis to plot on, if None, then it's the default one.
         plot_all : bool
             If True, plot each gaussian. Or else plot only final model.
         grid : object, optional
             The grid to interpolate on, speeds up interpolation. Look at Grid1D and Grid2D in synth.py
-        
+
         Returns
         -------
         y : 1darray
-            The synthetic spectra model evaluated at given parameters. 
+            The synthetic spectra model evaluated at given parameters.
         '''
 
         if plot:
             if ax is None:
                 ax = plt
 
-        ali, *ews, const = params
-        y = bline(wl_obs, ali, self.std_li, self.rv, teff=self.teff, logg=self.logg, feh=self.feh, ew_to_abund=self.ew_to_abund, min_ew=self.min_ew, grid=grid) 
+        ew_li, *ews, const = params
+        y = bline(wl_obs, ew_li, self.std_li, self.rv, teff=self.teff, logg=self.logg, feh=self.feh, ew_to_abund=self.ew_to_abund, min_ew=self.min_ew, grid=grid)
         if plot:
             ax.plot(wl_obs, y, label='Li')
-        
+
         for a, c in zip(ews, self.center):
             y1 = gline(wl_obs, a, self.std, self.rv, center=c)
             if plot_all:
                 ax.plot(wl_obs, y1)
             y *= y1
-        
+
         # plot
         if plot:
             ax.plot(wl_obs, y, label='fit')
             ax.axvline(6707.814*(1+self.rv/_c), linestyle='--')
-        
+
         y /= const
-        
+
         return y
 
 
 class FitBroad:
-    '''Fits rv and a EW for each center given. 
+    '''Fits rv and a EW for each center given.
     For broad region to measure rv.
     '''
 
@@ -524,7 +632,7 @@ class FitBroad:
 
     def fit(self, wl_obs, flux_obs, flux_err, init):
         '''Fit rv of observed spectrum.
-        
+
         Parameters
         ----------
         wl_obs : 1darray
@@ -534,14 +642,14 @@ class FitBroad:
         flux_err : 1darray
             observed flux error
         init : list
-            The initial guess, use get_init to format from dictionary 
+            The initial guess, use get_init to format from dictionary
 
         Returns
         -------
         fit : dict
             Fitted parameters
         '''
-        
+
         # poorly constrained star
         if init is None:
             return None
@@ -549,7 +657,7 @@ class FitBroad:
         # construct bounds
         bounds = [(0, np.inf) for _ in range(len(init['amps']))] # positive finite EW
         bounds.append((-self.rv_lim, self.rv_lim)) # given in init
-        
+
         # fit
         func = lambda x: chisq(wl_obs, flux_obs, flux_err, self.model, x, bounds)
         res = minimize(func, self.get_init(init), method='Nelder-Mead')
@@ -557,7 +665,7 @@ class FitBroad:
         return {'amps':res.x[:-1], 'std':self.std, 'rv':res.x[-1], 'minchisq':res.fun, 'bounds':bounds}
 
     def model(self, wl_obs, params, plot=False, ax=None, plot_all=False):
-        '''Multiplying Gaussians together with a common std and rv. 
+        '''Multiplying Gaussians together with a common std and rv.
 
         wl_obs : np.array
             observed wavelengths
@@ -566,38 +674,38 @@ class FitBroad:
         plot : bool
             If True, turns on plotting.
         ax : matplotlib.axes, optional
-            The axis to plot on, if None, then it's the default one. 
+            The axis to plot on, if None, then it's the default one.
         plot_all : bool
             If True, plot each gaussian. Or else plot only final model.
 
         Returns
         -------
         y : 1darray
-            The synthetic spectra model evaluated at given parameters. 
+            The synthetic spectra model evaluated at given parameters.
         '''
-        
+
         if plot:
             if ax is None:
                 ax = plt
-        
+
         *ews, offset = params
         y = np.ones(len(wl_obs))
-        
+
         for a, c in zip(ews, self.center):
             y1 = gline(wl_obs, a, self.std, offset, center=c)
             if plot_all:
                 ax.plot(wl_obs, y1)
             y *= y1
-        
+
         # plot
         if plot:
             ax.plot(wl_obs, y, label='fit')
-        
+
         return y
 
 
 def pred_amp(wl_obs, flux_obs, flux_err, centers, rv=0, perc=95, set_cont=False):
-    '''Get the amplitudes for the initial guess. 
+    '''Get the amplitudes for the initial guess.
 
     Parameters
     ----------
@@ -610,7 +718,7 @@ def pred_amp(wl_obs, flux_obs, flux_err, centers, rv=0, perc=95, set_cont=False)
     centers : 1darray
         The centers the lines are at -- these are the wls used to find the amplitudes
     rv : float, optional
-        rv shift, used to shift the centers. Default 0. 
+        rv shift, used to shift the centers. Default 0.
     perc : float, optional
         The percentile to use for the continuum estimation. Default 95
     set_cont : bool, optional
@@ -640,7 +748,7 @@ def check_mp(amps, err):
     Parameters
     ----------
     amps : 1darray
-        amplitudes 
+        amplitudes
     err : 1darray
         errors at the amplitudes
 
@@ -658,7 +766,7 @@ def check_mp(amps, err):
 
 def cross_correlate(wl, flux, centers, amps, std, rv):
     '''Calculate the cross correlation between template and obs flux.
-    
+
     Parameters
     ----------
     wl : 1darray
@@ -668,7 +776,7 @@ def cross_correlate(wl, flux, centers, amps, std, rv):
     centers : float
         centers the lines are at
     amps : 1darray
-        EWs of model (multiplying Gaussians together). 
+        EWs of model (multiplying Gaussians together).
     std : float
         width
     rv : float
@@ -679,7 +787,7 @@ def cross_correlate(wl, flux, centers, amps, std, rv):
     cc : float
         The cross correlation between the observed spectrum and the model spectrum
     '''
-    
+
     fit_all = FitBroad(center=centers, std=std)
     template = fit_all.model(wl, [*amps, std, rv])
     cc = np.sum(template*flux)
@@ -718,7 +826,7 @@ def cc_rv(wl, flux, centers, amps, std, rv_init, rv_lim):
     return rvs[np.argmax(ccs)]
 
 def filter_spec(spec, sigma=5):
-    '''filter weird parts of the spectrum out. Sets extremely small flux errors to the median flux error. GALAH DR3 can underestimate flux error by more than an order of magnitude, massively biasing fits. Did not check if this problem persists in DR4. 
+    '''filter weird parts of the spectrum out. Sets extremely small flux errors to the median flux error. GALAH DR3 can underestimate flux error by more than an order of magnitude, massively biasing fits. Did not check if this problem persists in DR4.
 
     Parameters
     ----------
@@ -747,7 +855,7 @@ def filter_spec(spec, sigma=5):
     return spec
 
 def broken_spec(spec):
-    '''Filter broken spectra out. 
+    '''Filter broken spectra out.
     '''
 
     # weird normalisation, M-type stars suck.
@@ -760,7 +868,7 @@ def broken_spec(spec):
 
 def amp_to_init(amps, std, const, rv=0):
     '''convert amplitudes to initial guess (ew & include std, rv)
-    
+
     Parameters
     ----------
     amps : 1darray
@@ -775,11 +883,11 @@ def amp_to_init(amps, std, const, rv=0):
     Returns
     -------
     init : dict
-        The initial guess. ews are from amps and std. 
+        The initial guess. ews are from amps and std.
     '''
-    
+
     init = list(np.array(amps)*np.sqrt(2*np.pi)*std) # amp to ew
-    return {'amps':init, 'std':std, 'rv':rv, 'const':const}
+    return {'amps':init, 'std':std, 'rv':rv, 'const':const, 'sigma':std, 'gamma':std}
 
 def iter_fit(wl, flux, flux_err, center, std, rv_lim):
     '''Iteratively fit the broad region. The fit is only as good as the rv, which is only as good as the ews. Hence iteratively fit between cross correlated rv and ews. Gives up after 5 iterations and returns the initial fit.
@@ -798,7 +906,7 @@ def iter_fit(wl, flux, flux_err, center, std, rv_lim):
         The std from GALAH in \AA
     rv_lim : float
         The limit on rv, mirrored limit on either side, it is based on galah vbroad values..
-    
+
     Returns
     -------
     res : dict
@@ -810,7 +918,7 @@ def iter_fit(wl, flux, flux_err, center, std, rv_lim):
     amps, _, _ = pred_amp(wl, flux, flux_err, center, set_cont=True)
     res = amp_to_init(amps, std, 1, rv=0)
     init_rv = cc_rv(wl, flux, center, res['amps'], res['std'], res['rv'], rv_lim)
-    
+
     # get initial amp
     amps, err, _ = pred_amp(wl, flux, flux_err, center, rv=init_rv, set_cont=True)
     init = amp_to_init(amps, std, 1, rv=init_rv)
@@ -835,10 +943,10 @@ def iter_fit(wl, flux, flux_err, center, std, rv_lim):
             res = initial_res
             print('iterations over 5')
             break
-    
+
     # check poorly constrained again because some fits are bad
     if check_mp(res['amps'], err):
         return None
-    
+
     return res
 

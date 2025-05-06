@@ -5,9 +5,10 @@ from astro_tools import SpecAnalysis
 from scipy.stats import norm
 from astro_tools import vac_to_air
 from scipy.interpolate import CubicSpline
+from scipy.special import voigt_profile
 import matplotlib.pyplot as plt
 
-_c = 299792.458 # speed of light in km s^-1 
+_c = 299792.458 # speed of light in km s^-1
 # optimised from 8s for 100 spectra to 2s - cut mainly, gaussian broadening versions don't make too much of a difference
 _spectra = Spectra()
 # cut to 6703 - 6712 (a little bit extra for rv shift)
@@ -26,26 +27,26 @@ def bline(x, ew, std, rv, teff, logg, feh, ew_to_abund, min_ew, grid=None):
     std : float
         The standard deviation of the line. If breidablik=True, this is the amount that the std that goes into the Gaussian convolution.
     rv : float
-        The radial velocity. 
+        The radial velocity.
     teff : float, optional
         Used in breidablik, teff of star
     logg : float, optional
-        Used in breidablik, logg of star 
+        Used in breidablik, logg of star
     feh : float, optional
-        Used in breidablik, feh of star 
+        Used in breidablik, feh of star
     ew_to_abund : object, optional
-        Converting EW to A(Li), used in Breidablik since the input there is A(Li), but the input to this function is EW. 
+        Converting EW to A(Li), used in Breidablik since the input there is A(Li), but the input to this function is EW.
     min_ew : float
         The EW corresponding to A(Li) = -0.5, used for mirroring to emission.
     grid : object, optional
         Grid of cubicsplines to interpolate spectra on, faster than computing from scratch. Default None which doesn't use grid.
-    
-    Returns 
+
+    Returns
     -------
     flux : 1darray
         The flux from Breidablik (3D NLTE Li profile).
-    ''' 
-    
+    '''
+
     if (grid is None) or (grid.grid is None):
         flux = bprof(ew, std, teff, logg, feh, ew_to_abund, min_ew)
     elif grid.dim == 1:
@@ -66,20 +67,20 @@ def bprof(ew, std, teff, logg, feh, ew_to_abund, min_ew):
     teff : float, optional
         Used in breidablik, teff of star
     logg : float, optional
-        Used in breidablik, logg of star 
+        Used in breidablik, logg of star
     feh : float, optional
-        Used in breidablik, feh of star 
+        Used in breidablik, feh of star
     ew_to_abund : object
-        Converting EW to A(Li), used in Breidablik since the input there is A(Li), but the input to this function is EW. 
+        Converting EW to A(Li), used in Breidablik since the input there is A(Li), but the input to this function is EW.
     min_ew : float
         The EW corresponding to A(Li) = -0.5, used for mirroring to emission.
-    
-    Returns 
+
+    Returns
     -------
     flux : 1darray
         The flux from Breidablik (3D NLTE Li profile).
     '''
-    
+
     if ew >= min_ew:
         ali = ew_to_abund(ew)
         flux = _spectra._predict_flux(teff, logg, feh, [ali])[0]
@@ -101,9 +102,31 @@ def bprof(ew, std, teff, logg, feh, ew_to_abund, min_ew):
         _, flux = spec._gaussian_broaden(center=6707.814, mode='std', broad=std*_c/6707.814)
     return flux
 
+def vline(x, amp, sigma, gamma, rv, center):
+    '''Create a voigt spectral line.
+
+    Parameters
+    ----------
+    x : 1darray
+        The wavelengths to evaluate the spectral line at
+    amp : float
+        The amplitude to scale the spectral line
+    sigma : float
+        The standard deviation of the normal distribution
+    gamma : float
+        The HWHM of the Cauchy distribution
+    rv : float
+        The radial velocity.
+    center : float
+        The center that the line is at
+    '''
+
+    y = 1-amp*voigt_profile(x-center*(1-rv/_c), sigma, gamma)
+    return y
+
 def gline(x, ew, std, rv, center):
     '''Create a Gaussian spectral line.
-    
+
     Parameters
     ----------
     x : 1darray
@@ -137,11 +160,11 @@ class Grid:
         ewrange : [float, float]
             min ew, max ew
         cutoff : int, optional
-            Any value higher will not have a grid computed for it, takes too long. 
+            Any value higher will not have a grid computed for it, takes too long.
         **kwargs
             kwargs that go into the breidablik profile function.
         '''
-        
+
         self.dim = 1
         self.ewnum = max(int(np.ceil((ewrange[1]-ewrange[0])/1e-1)), 3)
         self.ews = np.linspace(ewrange[0], ewrange[1], self.ewnum)
@@ -167,7 +190,7 @@ class Grid:
 
         fluxes = [bprof(ew, **kwargs) for ew in self.ews]
         grid = [CubicSpline(self.ews, f) for f in np.array(fluxes).T]
-            
+
         return grid
 
     def interpolate(self, ew):
@@ -176,8 +199,8 @@ class Grid:
         Parameters
         ----------
         ew : float
-            EW of the line 
-        
+            EW of the line
+
         Returns
         -------
         int_flux : 1darray
@@ -186,7 +209,7 @@ class Grid:
 
         if self.grid is None:
             return None
-        
+
         flux = [cs(ew) for cs in self.grid]
 
         return np.array(flux)
@@ -198,22 +221,22 @@ fwhm_to_std = lambda x: x/(2*np.sqrt(2*np.log(2)))
 
 def encompass(y, y_target, offset=0):
     '''Find the index of the elements which encompass the target
-    
+
     Parameters
     ----------
     y : 1darray
-        The y array of values, needs to be monotonic. 
+        The y array of values, needs to be monotonic.
     y_target : float
-        The target y value that you want values surrounding. 
+        The target y value that you want values surrounding.
     offset : int
         The offset for the indicies, if you only give half the y array for monotonic reasons.
 
     Returns
     -------
     left_ind, right_ind : int, int
-        The left and right index of the ys that encompass the y_target value. 
+        The left and right index of the ys that encompass the y_target value.
     '''
-    
+
     x = np.arange(0, len(y))
     less = x[y < y_target]
     more = x[y > y_target]
@@ -227,7 +250,7 @@ def encompass(y, y_target, offset=0):
 
 def measure_fwhm(x, y, ratio=0.5, threshold=0.001):
     '''Measure fwhm from input line.
-    
+
     Parameters
     ----------
     x : 1darray
@@ -237,12 +260,12 @@ def measure_fwhm(x, y, ratio=0.5, threshold=0.001):
     ratio : float
         The ratio of the depth to find the fwhm at.
     threshold : float
-        The threshold to achieve before linear interpolating. Smaller values are more accurate but take longer to compute. 
+        The threshold to achieve before linear interpolating. Smaller values are more accurate but take longer to compute.
 
     Returns
     -------
     fwhm : float
-        The full width half max measured. 
+        The full width half max measured.
     '''
 
     # setup
@@ -272,11 +295,11 @@ def calc_std(x, ew, fwhm, teff, logg, feh, ew_to_abund, min_ew, ratio=0.5, ex_st
     teff : float, optional
         Used in breidablik, teff of star
     logg : float, optional
-        Used in breidablik, logg of star 
+        Used in breidablik, logg of star
     feh : float, optional
-        Used in breidablik, feh of star 
+        Used in breidablik, feh of star
     ew_to_abund : object, optional
-        Converting EW to A(Li), used in Breidablik since the input there is A(Li), but the input to this function is EW. 
+        Converting EW to A(Li), used in Breidablik since the input there is A(Li), but the input to this function is EW.
     min_ew : float
         The EW corresponding to A(Li) = -0.5, used for mirroring to emission.
     ratio : float, optional
@@ -347,7 +370,7 @@ def window_search(bound_x, func, target_y, threshold=0.001, bound_y=None):
         left_y, right_y = func(left_x), func(right_x)
     else:
         left_y, right_y = bound_y
-    
+
     # double check that target is bounded
     assert ((left_y <= target_y) & (target_y <= right_y)) | ((right_y <= target_y) & (target_y <= left_y))
     new_x = (left_x + right_x)/2
