@@ -99,7 +99,7 @@ if __name__ == '__main__':
     # argparse to change keys easily
     parser = argparse.ArgumentParser(description='options for running')
     parser.add_argument('-k', '--key', metavar='key', type=str, default='test', help='change the observations which are run, year/month. Needs to match id_dict contents')
-    parser.add_argument('--sid', metavar='sid', type=int, default=131120002001376, help='The sobject_id of the star to be run, default star is a "quick" test case')
+    parser.add_argument('--sid', metavar='sid', type=int, default=140208005101201, help='The sobject_id of the star to be run, default star is a "quick" test case')
     parser.add_argument('--save_fit', action='store_true', help='save individual fits, 1 file per fit (all info)')
     parser.add_argument('--load_fit', action='store_true', help='load individual fits, 1 file per fit  (all info)')
     parser.add_argument('--plot', action='store_true', help='plot results')

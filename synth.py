@@ -121,7 +121,7 @@ def vline(x, amp, sigma, gamma, rv, center):
         The center that the line is at
     '''
 
-    y = 1-amp*voigt_profile(x-center*(1-rv/_c), sigma, gamma)
+    y = 1-amp*voigt_profile(x-center*(1+rv/_c), sigma, gamma)
     return y
 
 def gline(x, ew, std, rv, center):
