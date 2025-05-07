@@ -103,7 +103,7 @@ class FitG:
 
         # fit
         func = lambda x: chisq(wl_obs, flux_obs, flux_err, self.model, x, bounds, wl_left=6706.730*(1+x[1]/_c)-self.std*2, wl_right=6708.961*(1+x[1]/_c)+self.std*2)
-        res = minimize(func, self.get_init(init), method='Nelder-Mead')
+        res = minimize(func, self.get_init(init), method='Nelder-Mead', bounds=bounds)
 
         return {'li':res.x[0], 'std_li':np.std, 'rv':res.x[1], 'amps':[], 'const':res.x[2], 'minchisq':res.fun}
 
@@ -199,7 +199,7 @@ class FitGFixed:
 
         # fit
         func = lambda x: chisq(wl_obs, flux_obs, flux_err, self.model, x, bounds, wl_left=6706.730*(1+self.rv/_c)-self.std*2, wl_right=6708.961*(1+self.rv/_c)+self.std*2)
-        res = minimize(func, self.get_init(init), method='Nelder-Mead')
+        res = minimize(func, self.get_init(init), method='Nelder-Mead', bounds=bounds)
 
         return {'li':res.x[0], 'std_li':self.std, 'const':res.x[-1], 'amps':res.x[1:-1], 'rv':self.rv, 'minchisq':res.fun}
 
@@ -302,7 +302,7 @@ class FitVFixed:
 
         # fit
         func = lambda x: chisq(wl_obs, flux_obs, flux_err, self.model, x, bounds, wl_left=6706.730*(1+self.rv/_c)-self.std*2, wl_right=6708.961*(1+self.rv/_c)+self.std*2)
-        res = minimize(func, self.get_init(init), method='Nelder-Mead')
+        res = minimize(func, self.get_init(init), method='Nelder-Mead', bounds=bounds)
         self.model(wl_obs, res.x, calc_ew=True)
 
         return {'li':res.x[0], 'ew_li':self.ew_li, 'std_li':self.std, 'sigma':res.x[-3], 'gamma':res.x[-2], 'const':res.x[-1], 'amps':res.x[1:-3], 'rv':self.rv, 'minchisq':res.fun}
@@ -433,7 +433,7 @@ class FitB:
                 (0.5, 1.5)] # continuum normalisation constant
 
         func = lambda x: chisq(wl_obs, flux_obs, flux_err, self.model, x, bounds, wl_left=6706.730*(1+x[1]/_c)-self.std*2, wl_right=6708.961*(1+x[1]/_c)+self.std*2)
-        res = minimize(func, self.get_init(init), method='Nelder-Mead')
+        res = minimize(func, self.get_init(init), method='Nelder-Mead', bounds=bounds)
 
         return {'li':res.x[0], 'std_li':self.std_li, 'const':res.x[-1], 'amps':[], 'rv':res.x[-2], 'minchisq':res.fun}
 
@@ -553,7 +553,7 @@ class FitBFixed:
         bounds.append((0.5, 1.5)) # continuum normalisation constant
 
         func = lambda x: chisq(wl_obs, flux_obs, flux_err, self.model, x, bounds, wl_left=6706.730*(1+self.rv/_c)-self.std*2, wl_right=6708.961*(1+self.rv/_c)+self.std*2)
-        res = minimize(func, self.get_init(init), method='Nelder-Mead')
+        res = minimize(func, self.get_init(init), method='Nelder-Mead', bounds=bounds)
 
         return {'li':res.x[0], 'std_li':self.std_li, 'const':res.x[-1], 'amps':res.x[1:-1], 'rv':self.rv, 'minchisq':res.fun}
 
