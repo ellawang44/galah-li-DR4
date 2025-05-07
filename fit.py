@@ -660,7 +660,7 @@ class FitBroad:
 
         # fit
         func = lambda x: chisq(wl_obs, flux_obs, flux_err, self.model, x, bounds)
-        res = minimize(func, self.get_init(init), method='Nelder-Mead')
+        res = minimize(func, self.get_init(init), method='Nelder-Mead', bounds=bounds)
 
         return {'amps':res.x[:-1], 'std':self.std, 'rv':res.x[-1], 'minchisq':res.fun, 'bounds':bounds}
 
