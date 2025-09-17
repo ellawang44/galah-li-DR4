@@ -31,8 +31,9 @@ objectids = [140113002401159, 151231004901205, 160520002601357, 170220003101024,
 for i in objectids:
     print(i)
     
-    #if os.path.exists(f'view/{i}.png'):
-    #    continue
+    if os.path.exists(f'view/{i}.png'):
+        print('figure already exists in folder, skipping')
+        continue
 
     try:
         spectra = read_spectra(i)
