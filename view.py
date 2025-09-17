@@ -1,6 +1,7 @@
 # diagnostic plots
 
 import numpy as np
+import pandas as pd
 import matplotlib.pyplot as plt
 from run import FitSpec
 from read import read_spectra, read_meta, cut
@@ -27,13 +28,21 @@ objectids = [140113002401159, 151231004901205, 160520002601357, 170220003101024,
 
 #objectids = [int(i[:-4]) for i in os.listdir('data/fits') if f'{i[:-4]}.png' not in os.listdir('view')]
 
-
 for i in objectids:
     print(i)
-    spectra = read_spectra(i)
-    if spectra is None:
+    
+    #if os.path.exists(f'view/{i}.png'):
+    #    continue
+
+    try:
+        spectra = read_spectra(i)
+    except FileNotFoundError:
+        print('galah spectra file missing, skipping', i)
         continue
 
+    if spectra is None:
+        continue
+    
     spectra = cut(spectra, 6695, 6719)
     spectra = filter_spec(spectra) 
     spectra_broad = copy.deepcopy(spectra)
@@ -56,17 +65,19 @@ for i in objectids:
     plt.close()
     fitspec.plot_li(spectra, mode='minimize', show=False, path=f'view_temp/{i}_init.png')
     plt.close()
-    if fitspec.run_res[fitspec.runs]['results']['samples'] is not None:
-        fitspec.plot_li(spectra, mode='posterior', show=False, path=f'view_temp/{i}_li.png')
-        plt.close()
-        fitspec.plot_corner(show=False, path=f'view_temp/{i}_corner.png')
-        plt.close()
+    if fitspec.run_res[fitspec.runs]['results'] is not None:
+        if fitspec.run_res[fitspec.runs]['results']['samples'] is not None:
+            fitspec.plot_li(spectra, mode='posterior', show=False, path=f'view_temp/{i}_li.png')
+            plt.close()
+            fitspec.plot_corner(show=False, path=f'view_temp/{i}_corner.png')
+            plt.close()
 
     broad = Image.open(f'view_temp/{i}_broad.png')
     init = Image.open(f'view_temp/{i}_init.png')
-    if fitspec.run_res[fitspec.runs]['results']['samples'] is not None:
-        li = Image.open(f'view_temp/{i}_li.png')
-        corner = Image.open(f'view_temp/{i}_corner.png')
+    if fitspec.run_res[fitspec.runs]['results'] is not None:
+        if fitspec.run_res[fitspec.runs]['results']['samples'] is not None:
+            li = Image.open(f'view_temp/{i}_li.png')
+            corner = Image.open(f'view_temp/{i}_corner.png')
 
     fig = plt.figure(figsize=(12,12), constrained_layout=True)
     gs = fig.add_gridspec(ncols=3, nrows=2, height_ratios=[1,3])
@@ -76,16 +87,20 @@ for i in objectids:
     ax1 = fig.add_subplot(gs[0,1])
     ax1.imshow(init)
     ax1.axis('off')
-    if fitspec.run_res[fitspec.runs]['results']['samples'] is not None:
-        ax2 = fig.add_subplot(gs[0,2])
-        ax2.imshow(li)
-        ax2.axis('off')
-        ax3 = fig.add_subplot(gs[1,:])
-        ax3.imshow(corner)
-        ax3.axis('off')
+    if fitspec.run_res[fitspec.runs]['results'] is not None:
+        if fitspec.run_res[fitspec.runs]['results']['samples'] is not None:
+            ax2 = fig.add_subplot(gs[0,2])
+            ax2.imshow(li)
+            ax2.axis('off')
+            ax3 = fig.add_subplot(gs[1,:])
+            ax3.imshow(corner)
+            ax3.axis('off')
     title = f'{fitspec.mode}'
     if not fitspec.run_res[fitspec.runs]['posterior_good']:
-        title = title + ' ' + str(fitspec.edge_ind)
+        try:
+            title = title + ' ' + str(fitspec.edge_ind)
+        except AttributeError: 
+            pass
     plt.title(title)
     plt.savefig(f'view/{i}.png')
     plt.close()
