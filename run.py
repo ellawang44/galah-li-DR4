@@ -21,7 +21,7 @@ class FitSpec:
         Parameters
         ----------
         std : float
-            std from galah, in \AA.
+            std from galah, in Angstrom.
         snr : float
             The SNR per pixel of the spectrum.
         sid : int
@@ -261,8 +261,8 @@ class FitSpec:
         # save initial Li fit
         self.li_init_fit = {'amps':[res['li'], *res['amps']], 'const':res['const'], 'std':res['std_li'], 'rv':res['rv'], 'sigma':res['sigma'], 'gamma':res['gamma'], 'minchisq':res['minchisq']}
 
-    def bad_spec(self, spectra):
-        '''Identify bad spectra. Based on normalised flux and std being reasonable.
+    def no_mcmc_spec(self, spectra):
+        '''Identify spectra where mcmc will take forever. Based on normalised flux being reasonable.
 
         Parameters
         ----------
@@ -275,8 +275,14 @@ class FitSpec:
             True if the spectra is bad, False otherwise.
         '''
 
+        # this is the same range that chisq and un_fitter uses to calculate the loss
+        wl_left = 6706.730*(1+self.li_init_fit['rv']/_c)-self.li_init_fit['std']*2
+        wl_right = 6708.961*(1+self.li_init_fit['rv']/_c)+self.li_init_fit['std']*2
+        mask = (wl_left <= spectra['wave_norm']) & (spectra['wave_norm'] <= wl_right)
         # below 0 or extremely above 1 spectra
-        lower, upper = np.percentile(spectra['sob_norm'], [5, 95])
+        lower, upper = np.percentile(spectra['sob_norm'][mask]*self.li_init_fit['const'], [5, 95])
+        # if spike is in this region, don't run mcmc
+        # unsure what sort of convergence issues it will cause mcmc
         if lower < 0 or upper > 1.5:
             return True
         return False
@@ -426,7 +432,7 @@ class FitSpec:
         self.run_res = {}
 
         # spectra is bad so we skip mcmc
-        if self.bad_spec(spectra):
+        if self.no_mcmc_spec(spectra):
             self.li_fit = None
             self.run_res[self.runs+1] = {'results':None, 'std_li':np.nan, 'time':np.nan, 'bounds':None, 'posterior_good':False, 'due_to_const':False, 'edge_ind':99}
             return None
@@ -617,8 +623,13 @@ class FitSpec:
 
         if ax is None:
             plt.xlim(6695, 6719)
+            ymin, ymax = plt.ylim()
+            plt.ylim(max(ymin, np.min(spectra['sob_norm'])-0.1), min(ymax, 2))
             plt.xlabel(r'wavelengths ($\AA$)')
             plt.ylabel('normalised flux')
+        else:
+            ymin, ymax = axes.set_ylim()
+            axes.set_ylim(max(ymin, np.min(spectra['sob_norm'])-0.1), min(ymax, 2))
         axes.legend()
         if path is not None:
             plt.savefig(path, bbox_inches='tight')
@@ -703,8 +714,14 @@ class FitSpec:
             plt.xlabel(r'wavelengths ($\AA$)')
             plt.ylabel('normalised flux')
             plt.xlim(6706, 6709.5)
+            ymin, ymax = plt. ylim()
+            mask_cut = (6706 <= spectra['wave_norm']) & (spectra['wave_norm'] <= 6709.5)
+            plt.ylim(max(ymin, np.min(spectra['sob_norm'][mask_cut]*fit['const'])-0.1), min(np.max(spectra['sob_norm'][mask_cut]*fit['const'])+0.1, 2))
         else:
             axes.set_xlim(6706, 6709.5)
+            ymin, ymax = axes.set_ylim()
+            mask_cut = (6706 <= spectra['wave_norm']) & (spectra['wave_norm'] <= 6709.5)
+            axes.set_ylim(max(ymin, np.min(spectra['sob_norm'][mask_cut]*fit['const'])-0.1), min(np.max(spectra['sob_norm'][mask_cut]*fit['const'])+0.1, 2))
         if path is not None:
             plt.savefig(path, bbox_inches='tight')
         if show:

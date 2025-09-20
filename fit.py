@@ -99,7 +99,7 @@ class FitG:
         # construct bounds
         bounds = [(-np.inf, np.inf)] # Li EW can be negative
         bounds.append((-self.rv_lim, self.rv_lim)) # given in init
-        bounds.append((0.5, 1.5)) # continuum normalisation constant
+        bounds.append((max(0, init['const']-1), init['const']+1)) # continuum normalisation constant
 
         # fit
         func = lambda x: chisq(wl_obs, flux_obs, flux_err, self.model, x, bounds, wl_left=6706.730*(1+x[1]/_c)-self.std*2, wl_right=6708.961*(1+x[1]/_c)+self.std*2)
@@ -195,8 +195,8 @@ class FitGFixed:
         # construct bounds
         bounds = [(-np.inf, np.inf)] # Li EW can be negative
         bounds.extend([(0, np.inf) for _ in range(len(init['amps'])-1)]) # positive finite EW
-        bounds.append((0.5, 1.5)) # continuum normalisation constant
-
+        bounds.append((max(0, init['const']-1), init['const']+1)) # continuum normalisation constant
+        
         # fit
         func = lambda x: chisq(wl_obs, flux_obs, flux_err, self.model, x, bounds, wl_left=6706.730*(1+self.rv/_c)-self.std*2, wl_right=6708.961*(1+self.rv/_c)+self.std*2)
         res = minimize(func, self.get_init(init), method='Nelder-Mead', bounds=bounds)
@@ -298,7 +298,7 @@ class FitVFixed:
         bounds = [(-np.inf, np.inf)] # Li EW can be negative
         bounds.extend([(0, np.inf) for _ in range(len(init['amps'])-1)]) # positive finite EW
         bounds.extend([(0, np.inf), (0, np.inf)]) # sigma and gamma for voigt profile must be positive
-        bounds.append((0.5, 1.5)) # continuum normalisation constant
+        bounds.append((max(0, init['const']-1), init['const']+1)) # continuum normalisation constant
 
         # fit
         func = lambda x: chisq(wl_obs, flux_obs, flux_err, self.model, x, bounds, wl_left=6706.730*(1+self.rv/_c)-self.std*2, wl_right=6708.961*(1+self.rv/_c)+self.std*2)
@@ -430,7 +430,7 @@ class FitB:
         # construct bounds
         bounds = [(-self.max_ew, self.max_ew), # based on cogs
                 (-self.rv_lim, self.rv_lim), # based on galah vsini, except in km/s
-                (0.5, 1.5)] # continuum normalisation constant
+                ((max(0, init['const']-1), init['const']+1))] # continuum normalisation constant
 
         func = lambda x: chisq(wl_obs, flux_obs, flux_err, self.model, x, bounds, wl_left=6706.730*(1+x[1]/_c)-self.std*2, wl_right=6708.961*(1+x[1]/_c)+self.std*2)
         res = minimize(func, self.get_init(init), method='Nelder-Mead', bounds=bounds)
@@ -550,7 +550,7 @@ class FitBFixed:
 
         bounds = [(-self.max_ew, self.max_ew)] # based on cog
         bounds.extend([(0, np.inf) for _ in range(len(init['amps'])-1)]) # positive finite EW
-        bounds.append((0.5, 1.5)) # continuum normalisation constant
+        bounds.append((max(0, init['const']-1), init['const']+1)) # continuum normalisation constant
 
         func = lambda x: chisq(wl_obs, flux_obs, flux_err, self.model, x, bounds, wl_left=6706.730*(1+self.rv/_c)-self.std*2, wl_right=6708.961*(1+self.rv/_c)+self.std*2)
         res = minimize(func, self.get_init(init), method='Nelder-Mead', bounds=bounds)
@@ -704,7 +704,7 @@ class FitBroad:
         return y
 
 
-def pred_amp(wl_obs, flux_obs, flux_err, centers, rv=0, perc=95, set_cont=False):
+def pred_amp(wl_obs, flux_obs, flux_err, centers, rv=0, perc=95, threshold=0.01, set_cont=False):
     '''Get the amplitudes for the initial guess.
 
     Parameters
@@ -721,6 +721,8 @@ def pred_amp(wl_obs, flux_obs, flux_err, centers, rv=0, perc=95, set_cont=False)
         rv shift, used to shift the centers. Default 0.
     perc : float, optional
         The percentile to use for the continuum estimation. Default 95
+    threshold : float, optional
+        The threshold that the continuum estimation can change by before we think a spike has occured.
     set_cont : bool, optional
         Set continuum 1. Default False, which means continuum is estimated.
 
@@ -734,7 +736,23 @@ def pred_amp(wl_obs, flux_obs, flux_err, centers, rv=0, perc=95, set_cont=False)
     if set_cont:
         cont = 1
     else:
-        cont = np.percentile(flux_obs, perc)
+        percs = np.arange(70, 99)
+        conts = np.array([np.percentile(flux_obs, p) for p in percs])
+        diff = conts[1:] - conts[:-1]
+        if (diff < 0.01).all(): # well behaved continuum estimate
+            cont = conts[np.argmin(np.abs(percs-perc))]
+        else: 
+            # remove end points until diff is good
+            cutoff_ind = np.nan
+            for ind in range(1, len(percs)-1):
+                if (diff[:-ind] < 0.01).all():
+                    cutoff_ind = len(percs) - 1 - ind
+                    break
+            # no amount of removal makes it work, give up and set to default percentile
+            if np.isnan(cutoff_ind):
+                cutoff_ind = np.argmin(np.abs(percs-perc))
+            # use ind to set cont
+            cont = conts[cutoff_ind]
     # predict amplitudes
     inds = np.array([np.argmin(np.abs(wl_obs - i*(1+rv/_c))) for i in centers])
     amps = (1 - (flux_obs/cont)[inds])*1.01 # bit bigger because sampling
@@ -825,13 +843,15 @@ def cc_rv(wl, flux, centers, amps, std, rv_init, rv_lim):
     ccs = [cross_correlate(wl, flux, centers, amps, std, rv) for rv in rvs]
     return rvs[np.argmax(ccs)]
 
-def filter_spec(spec, sigma=5):
+def filter_spec(spec, threshold=5):
     '''filter weird parts of the spectrum out. Sets extremely small flux errors to the median flux error. GALAH DR3 can underestimate flux error by more than an order of magnitude, massively biasing fits. Did not check if this problem persists in DR4.
 
     Parameters
     ----------
     spec : dict
         Dictionary containing spectrum, from read (keys: wave_norm, sob_norm, uob_norm)
+    threshold : float, optional
+        Threshold to remove spikes. Set to be extremely generous. Hopefully no legitimate spectra are above this value.
 
     Returns
     -------
@@ -845,9 +865,8 @@ def filter_spec(spec, sigma=5):
     medium_sig = np.nanmedian(spec['uob_norm'])
     mask_medium = spec['uob_norm'] < medium_sig/10 # allow 1 order of magnitude
     spec['uob_norm'][mask_medium] = medium_sig
-    # filter flux which sigma*error above 1
-    #mask = mask & (spec['sob_norm'] < (1 + spec['uob_norm']*sigma))
-    # this filter results in things being overfiltered
+    # filter flux above threshold
+    mask = mask & (spec['sob_norm'] < threshold)
     # write
     spec['uob_norm'] = spec['uob_norm'][mask]
     spec['sob_norm'] = spec['sob_norm'][mask]
@@ -855,12 +874,9 @@ def filter_spec(spec, sigma=5):
     return spec
 
 def broken_spec(spec):
-    '''Filter broken spectra out.
+    '''Used after filtering, the spectra will not give useful abundances
     '''
 
-    # weird normalisation, M-type stars suck.
-    if np.all(spec['sob_norm'] < 0.5):
-        return True
     # not enough pixels
     if len(spec['wave_norm']) < 50:
         return True
@@ -903,7 +919,7 @@ def iter_fit(wl, flux, flux_err, center, std, rv_lim):
     center : 1darray
         centers of the lines to be fitted. Should be np.array([6696.085, 6698.673, 6703.565, 6705.101, 6710.317, 6711.819, 6713.095, 6713.742, 6717.681])).
     std : float
-        The std from GALAH in \AA
+        The std from GALAH in Angstrom
     rv_lim : float
         The limit on rv, mirrored limit on either side, it is based on galah vbroad values..
 
