@@ -15,5 +15,5 @@ objectids.append(170510005801366) # poorly constrained, 1 sigma detection
 objectids.append(140314005201392) # TiO & CN filled star
 objectids.append(131216001601042) # gaussian, metal-poor, no Li
 
-np.save('test_stars.npy', objectids)
+np.save('test_stars.npy', np.unique(objectids))
 
