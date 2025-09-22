@@ -99,7 +99,7 @@ class FitG:
         # construct bounds
         bounds = [(-np.inf, np.inf)] # Li EW can be negative
         bounds.append((-self.rv_lim, self.rv_lim)) # given in init
-        bounds.append((max(0, init['const']-1), init['const']+1)) # continuum normalisation constant
+        bounds.append((max(1e-3, init['const']-1), init['const']+1)) # continuum normalisation constant
 
         # fit
         func = lambda x: chisq(wl_obs, flux_obs, flux_err, self.model, x, bounds, wl_left=6706.730*(1+x[1]/_c)-self.std*2, wl_right=6708.961*(1+x[1]/_c)+self.std*2)
@@ -195,7 +195,7 @@ class FitGFixed:
         # construct bounds
         bounds = [(-np.inf, np.inf)] # Li EW can be negative
         bounds.extend([(0, np.inf) for _ in range(len(init['amps'])-1)]) # positive finite EW
-        bounds.append((max(0, init['const']-1), init['const']+1)) # continuum normalisation constant
+        bounds.append((max(1e-3, init['const']-1), init['const']+1)) # continuum normalisation constant
         
         # fit
         func = lambda x: chisq(wl_obs, flux_obs, flux_err, self.model, x, bounds, wl_left=6706.730*(1+self.rv/_c)-self.std*2, wl_right=6708.961*(1+self.rv/_c)+self.std*2)
@@ -298,7 +298,7 @@ class FitVFixed:
         bounds = [(-np.inf, np.inf)] # Li EW can be negative
         bounds.extend([(0, np.inf) for _ in range(len(init['amps'])-1)]) # positive finite EW
         bounds.extend([(0, np.inf), (0, np.inf)]) # sigma and gamma for voigt profile must be positive
-        bounds.append((max(0, init['const']-1), init['const']+1)) # continuum normalisation constant
+        bounds.append((max(1e-3, init['const']-1), init['const']+1)) # continuum normalisation constant
 
         # fit
         func = lambda x: chisq(wl_obs, flux_obs, flux_err, self.model, x, bounds, wl_left=6706.730*(1+self.rv/_c)-self.std*2, wl_right=6708.961*(1+self.rv/_c)+self.std*2)
@@ -430,7 +430,7 @@ class FitB:
         # construct bounds
         bounds = [(-self.max_ew, self.max_ew), # based on cogs
                 (-self.rv_lim, self.rv_lim), # based on galah vsini, except in km/s
-                ((max(0, init['const']-1), init['const']+1))] # continuum normalisation constant
+                ((max(1e-3, init['const']-1), init['const']+1))] # continuum normalisation constant
 
         func = lambda x: chisq(wl_obs, flux_obs, flux_err, self.model, x, bounds, wl_left=6706.730*(1+x[1]/_c)-self.std*2, wl_right=6708.961*(1+x[1]/_c)+self.std*2)
         res = minimize(func, self.get_init(init), method='Nelder-Mead', bounds=bounds)
@@ -550,7 +550,7 @@ class FitBFixed:
 
         bounds = [(-self.max_ew, self.max_ew)] # based on cog
         bounds.extend([(0, np.inf) for _ in range(len(init['amps'])-1)]) # positive finite EW
-        bounds.append((max(0, init['const']-1), init['const']+1)) # continuum normalisation constant
+        bounds.append((max(1e-3, init['const']-1), init['const']+1)) # continuum normalisation constant
 
         func = lambda x: chisq(wl_obs, flux_obs, flux_err, self.model, x, bounds, wl_left=6706.730*(1+self.rv/_c)-self.std*2, wl_right=6708.961*(1+self.rv/_c)+self.std*2)
         res = minimize(func, self.get_init(init), method='Nelder-Mead', bounds=bounds)
