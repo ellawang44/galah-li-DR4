@@ -24,9 +24,8 @@ assert np.allclose(fwhm[:,0], sobject_id) # required so the fwhm values are matc
 galah_psf = fwhm_to_std(fwhm[:,1]) # \AA, std
 galah_std = np.sqrt(np.square(vbroad) + np.square(galah_psf)) # \AA, std
 
-objectids = [140113002401159, 151231004901205, 160520002601357, 170220003101024, 210521002101384, 210916002101372, 211214000701367, 230304001601211]
-
-#objectids = [int(i[:-4]) for i in os.listdir('data/fits') if f'{i[:-4]}.png' not in os.listdir('view')]
+# all the outputs 
+objectids = [int(i[:-4]) for i in os.listdir('data/fits')]
 
 for i in objectids:
     print(i)

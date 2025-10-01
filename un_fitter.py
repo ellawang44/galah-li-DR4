@@ -2,6 +2,14 @@ import numpy as np
 import ultranest
 from scipy.stats import norm
 
+import logging
+logger = logging.getLogger("ultranest")
+handler = logging.StreamHandler(sys.stdout)
+handler.setLevel(logging.WARNING)
+formatter = logging.Formatter('[ultranest] [%(levelname)s] %(message)s')
+handler.setFormatter(formatter)
+logger.addHandler(handler)
+logger.setLevel(logging.WARNING)
 
 class UNFitter():
 
